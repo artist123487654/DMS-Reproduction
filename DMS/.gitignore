@@ -1,0 +1,51 @@
+# --- 评测产物 / 记忆库 ---
+results/
+logs/
+memory_banks/
+data/
+**/memory_banks/
+**/index.sqlite
+**/traj/
+
+# --- 密钥 / 本地环境 ---
+.env
+.env.*
+!.env.example
+*.pem
+secrets/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pytype/
+.cache/
+.venv/
+venv/
+env/
+
+# --- 模型缓存 / 临时 ---
+*.pt
+*.bin
+*.safetensors
+*.ckpt
+.huggingface/
+.cache/huggingface/
+tmp/
+temp/
+*.tmp
+*.log
+
+# --- IDE / 系统 ---
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db

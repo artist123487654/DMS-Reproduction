@@ -1,0 +1,46 @@
+# 论文附录超参
+survival:
+  v_new: 1.0          # 新记忆冷启动保护
+  t_base: 30.0        # 基础半衰期
+  mu: 15.0            # 使用次数拉长半衰期（论文 longevity 系数）
+  beta: 0.5           # 衰减陡峭度
+  gamma: 1.0          # 可靠性惩罚强度
+
+capacity:
+  C_min: 80           # 触发修剪的容量下界（论文未给整数，先取可调默认）
+  C_max: 300
+  delta_step: 20      # 高质量饱和时扩张步长
+
+retrieval:
+  top_k: 1
+  min_score: 0.35     # 双因子乘积阈值，过低易误召回
+
+# 本地嵌入（可配置依赖，勿硬编码绝对路径）
+embedding:
+  # HF 模型 ID；也可填本地目录。优先被环境变量 EMBEDDING_MODEL_PATH 覆盖
+  model_name_or_path: BAAI/bge-small-en-v1.5
+  device: cpu
+  normalize: true
+
+mutation:
+  epsilon: 0.1        # ε-mutation 探索概率
+
+risk:
+  m: 4.0              # 先验强度
+  t_global_init: 0.3  # 全局失败率初值
+  lambda_pen: 0.3     # 动态阈值敏感度
+  tau_base: 0.55      # 基础拒绝阈值
+
+storage:
+  root: memory_banks/dms
+  db_name: index.sqlite
+  traj_dirname: traj
+
+# 推荐：OpenRouter / OpenAI API（本机不加载模型）
+vlm:
+  # OpenRouter: export OPENROUTER_API_KEY=sk-or-...
+  # OpenAI:     export OPENAI_API_KEY=sk-... && export VLM_PROVIDER=openai
+  provider_env: VLM_PROVIDER          # openrouter | openai | dashscope
+  api_key_envs: [OPENROUTER_API_KEY, OPENAI_API_KEY, QWEN_API_KEY]
+  openrouter_model: qwen/qwen2.5-vl-7b-instruct
+  openai_model: gpt-4o

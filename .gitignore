@@ -1,0 +1,20 @@
+# 若仓库根目录是 code/，一并忽略 DMS 运行时产物与密钥
+DMS/results/
+DMS/logs/
+DMS/memory_banks/
+DMS/data/
+DMS/.env
+DMS/.env.*
+
+# 通用
+.env
+.env.*
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+*.log
