@@ -15,6 +15,11 @@ MIN_TASKS = [
     "MarkorCreateNoteAndSms",
 ]
 
+# Test：单任务冒烟（验证全流程）
+TEST_TASKS = [
+    "ContactsAddContact",
+]
+
 
 def _primary_app(task_cls: type) -> str:
     names = getattr(task_cls, "app_names", None) or ()
@@ -104,6 +109,8 @@ def resolve_tasks(
         return parts, "file"
 
     suite = (suite or "min").strip().lower()
+    if suite in {"test", "smoke"}:
+        return list(TEST_TASKS), "test"
     if suite in {"min", "minimum", "default"}:
         return list(MIN_TASKS), "min"
     if suite in {"preferred", "pref", "apps20", "cross_app"}:
@@ -113,7 +120,7 @@ def resolve_tasks(
     if suite in {"android", "android_family"}:
         return build_full_split_tasks("android"), "android"
     raise ValueError(
-        f"未知 suite={suite!r}，可选: min | preferred | full | android"
+        f"未知 suite={suite!r}，可选: test | min | preferred | full | android"
     )
 
 

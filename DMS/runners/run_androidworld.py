@@ -99,7 +99,7 @@ def build_llm(model: str | None, base_url: str | None, provider: str | None):
 def sanitize_model_tag(model: str | None, max_len: int = 64) -> str:
     """把模型名压成可作目录名的短标签，便于对比不同模型结果。"""
     raw = (model or "unknown").strip() or "unknown"
-    # openrouter: qwen/qwen2.5-vl-7b-instruct → qwen2.5-vl-7b-instruct
+    # openrouter: qwen/qwen3-vl-8b-instruct → qwen3-vl-8b-instruct
     if "/" in raw:
         raw = raw.split("/")[-1]
     out = []
@@ -276,8 +276,8 @@ def main() -> None:
         "--suite",
         type=str,
         default="min",
-        choices=["min", "preferred", "full", "android"],
-        help="min=默认5任务；preferred=每App采1–2个；full=android_world全集；android=ANDROID_FAMILY全集",
+        choices=["test", "min", "preferred", "full", "android"],
+        help="test=单任务冒烟；min=默认5任务；preferred=每App采1–2个；full=全集；android=ANDROID_FAMILY",
     )
     parser.add_argument(
         "--per_app",
@@ -291,7 +291,7 @@ def main() -> None:
     parser.add_argument("--grpc_port", type=int, default=8554)
     parser.add_argument("--adb_path", type=str, default=None)
     parser.add_argument("--perform_emulator_setup", action="store_true")
-    parser.add_argument("--model", type=str, default=None, help="默认读 QWEN_MODEL；OpenRouter 例 qwen/qwen2.5-vl-7b-instruct")
+    parser.add_argument("--model", type=str, default=None, help="默认读 QWEN_MODEL；OpenRouter 例 qwen/qwen3-vl-8b-instruct")
     parser.add_argument(
         "--base_url",
         type=str,

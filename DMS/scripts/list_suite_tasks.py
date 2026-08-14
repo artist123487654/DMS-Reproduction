@@ -19,7 +19,7 @@ from runners.task_suites import resolve_tasks, summarize_by_app  # noqa: E402
 
 def main() -> None:
     p = argparse.ArgumentParser()
-    p.add_argument("--suite", default="preferred", choices=["min", "preferred", "full", "android"])
+    p.add_argument("--suite", default="preferred", choices=["test", "min", "preferred", "full", "android"])
     p.add_argument("--per_app", type=int, default=2)
     p.add_argument("--seed", type=int, default=30)
     p.add_argument("--out", type=str, default=None, help="写出任务列表（每行一个）")

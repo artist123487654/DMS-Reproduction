@@ -19,9 +19,9 @@ _PRESET_BASE_URLS = {
 }
 
 _DEFAULT_MODELS = {
-    "openrouter": "qwen/qwen2.5-vl-7b-instruct",
+    "openrouter": "qwen/qwen3-vl-8b-instruct",
     "openai": "gpt-4o",
-    "dashscope": "qwen2.5-vl-7b-instruct",
+    "dashscope": "qwen3-vl-8b-instruct",
 }
 
 
@@ -81,7 +81,7 @@ class QwenVLWrapper:
     OpenRouter:
       export OPENROUTER_API_KEY=sk-or-...
       # 可选: export VLM_PROVIDER=openrouter
-      # 可选: export QWEN_MODEL=qwen/qwen2.5-vl-7b-instruct
+      # 可选: export QWEN_MODEL=qwen/qwen3-vl-8b-instruct
 
     OpenAI:
       export OPENAI_API_KEY=sk-...
@@ -116,7 +116,7 @@ class QwenVLWrapper:
                 "未找到 API Key。请设置 OPENROUTER_API_KEY 或 OPENAI_API_KEY（或 QWEN_API_KEY）。"
             )
 
-        default_model = _DEFAULT_MODELS.get(self.provider, "qwen/qwen2.5-vl-7b-instruct")
+        default_model = _DEFAULT_MODELS.get(self.provider, "qwen/qwen3-vl-8b-instruct")
         if "openrouter.ai" in self.base_url and self.provider != "openai":
             default_model = _DEFAULT_MODELS["openrouter"]
         self.model = model_name or os.environ.get("QWEN_MODEL") or default_model
