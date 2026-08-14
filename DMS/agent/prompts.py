@@ -34,7 +34,8 @@ VERIFIER_SYSTEM = """你是子任务完成度校验器。
 """
 
 ACTION_SPACE_HINT = (
-    "可用 UI 元素列表（含 index）见下方；click/long_press/input_text 必须使用可见 index。"
+    "可用 UI 元素列表（含 index）见下方；"
+    "click/long_press/input_text 的 index 必须落在「合法 index 范围」内，禁止臆造越界 index。"
 )
 
 

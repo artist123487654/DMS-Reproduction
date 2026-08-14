@@ -52,17 +52,20 @@ class MetricsPlotter:
         ax.set_title("SR (Fig.5a)")
         ax.set_xlabel("Round")
         ax.set_ylabel("Success Rate (%)")
+        ax.set_xticks(xs)
 
         ax = axes[0, 1]
         ax.plot(xs, mrr, marker="o", color="C1")
         ax.set_title("MRR (Fig.4)")
         ax.set_xlabel("Round")
         ax.set_ylabel("Memory Reuse (%)")
+        ax.set_xticks(xs)
 
         ax = axes[1, 0]
         ax.plot(xs, steps, marker="o", color="C2", label="steps")
         ax.set_xlabel("Round")
         ax.set_ylabel("Avg steps")
+        ax.set_xticks(xs)
         ax2 = ax.twinx()
         ax2.plot(xs, tokens, marker="s", color="C3", alpha=0.7, label="tokens")
         ax2.set_ylabel("Avg tokens")
@@ -73,6 +76,7 @@ class MetricsPlotter:
         ax.set_title("Memory size (Fig.6)")
         ax.set_xlabel("Round")
         ax.set_ylabel("#entries")
+        ax.set_xticks(xs)
 
         fig.tight_layout()
         out = self.results_dir / out_name

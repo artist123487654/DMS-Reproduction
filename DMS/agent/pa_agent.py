@@ -191,16 +191,39 @@ if _HAS_AW:
             self.core.reset_episode()
 
         def step(self, goal: str) -> base_agent.AgentInteractionResult:
+            # 最近一次 observe 的 UI，供 execute 做 index 边界检查
+            latest_ui: list[Any] = []
+
             def observe():
+                nonlocal latest_ui
                 state = self.get_post_transition_state()
                 image = state.pixels if hasattr(state, "pixels") else None
                 ui = getattr(state, "ui_elements", []) or []
+                latest_ui = list(ui)
                 desc = describe_ui_elements(ui)
                 return image, ui, desc
 
             def execute(action_dict: dict[str, Any]) -> None:
                 if action_dict.get("action_type") == "status":
                     return
+                action_dict = dict(action_dict)
+                # 越界 index 会直接抛错拖垮 episode；钳制到合法范围，无法钳制则改 wait
+                needs_index = action_dict.get("action_type") in {
+                    "click",
+                    "long_press",
+                    "input_text",
+                }
+                if needs_index:
+                    n = len(latest_ui)
+                    idx = action_dict.get("index")
+                    try:
+                        idx_i = int(idx) if idx is not None else -1
+                    except (TypeError, ValueError):
+                        idx_i = -1
+                    if n <= 0 or idx_i < 0 or idx_i >= n:
+                        action_dict = {"action_type": "wait"}
+                    else:
+                        action_dict["index"] = idx_i
                 try:
                     act = json_action.JSONAction(**{
                         k: v for k, v in action_dict.items()
@@ -216,7 +239,11 @@ if _HAS_AW:
                         app_name=action_dict.get("app_name"),
                         goal_status=action_dict.get("goal_status"),
                     )
-                self.env.execute_action(act)
+                try:
+                    self.env.execute_action(act)
+                except Exception:
+                    # 仍失败则吞掉，避免单步非法动作中断整轮评测
+                    pass
 
             done, info = self.core.run_one_env_step(goal, observe, execute)
             self._last_info = info

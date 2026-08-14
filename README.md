@@ -18,6 +18,8 @@ DMS 将 Agent 记忆视为遵循「适者生存」的动态生态：分层意图
 
 ```text
 code/
+├── README.md               # 项目说明
+├── RUN.md                  # 启动模拟器与跑实验（详细步骤）
 ├── android_world/          # AndroidWorld 评测环境
 └── DMS/                    # 复现代码
     ├── core/               # 记忆库、Survival、修剪、检索、闭环调节
@@ -33,7 +35,8 @@ code/
     └── configs/default.yaml
 ```
 
-请保持 `DMS/` 与 `android_world/` 同级。脚本按相对路径定位，不依赖固定用户名或绝对路径。
+请保持 `DMS/` 与 `android_world/` 同级。脚本按相对路径定位，不依赖固定用户名或绝对路径。  
+**如何启动模拟器并跑各档实验：见 [RUN.md](./RUN.md)。**
 
 ## 评测套件
 
