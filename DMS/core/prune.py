@@ -1,4 +1,4 @@
-"""基于 Elbow 的容量调节与长尾修剪，这个脚本用于根据生存价值选择需要修剪的记忆。"""
+"""基于 Elbow 的容量调节与长尾修剪，这个脚本用于根据生存价值选择需要修剪的记忆，对应Adaptive Memory Regulation"""
 
 from __future__ import annotations
 

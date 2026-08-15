@@ -79,9 +79,9 @@ bash scripts/run_min_baselines.sh --model qwen/qwen3-vl-8b-instruct
 bash scripts/run_preferred.sh --model qwen/qwen3-vl-8b-instruct
 bash scripts/run_full_split.sh --model qwen/qwen3-vl-8b-instruct
 
-# 仅列出套件任务
-python scripts/list_suite_tasks.py --suite test
-python scripts/list_suite_tasks.py --suite preferred --json
+# 仅列出套件任务（不跑评测）
+python runners/run_androidworld.py --suite test --list-tasks
+python runners/run_androidworld.py --suite preferred --list-tasks
 ```
 
 常用环境变量：`BACKEND`、`TRIALS`、`PER_APP`、`SEED`、`TASK`（仅 `run_test.sh` 可覆盖任务名）。

@@ -1,4 +1,4 @@
-"""这个脚本计算生存价值 S(m) = Utility × AdaptiveDecay × Reliability。"""
+"""这个脚本计算生存价值 S(m) = Utility × AdaptiveDecay × Reliability，对应论文3.2.3. SELF-REGULATION STRATEGY。"""
 
 from __future__ import annotations
 

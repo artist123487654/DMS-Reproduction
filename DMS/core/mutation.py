@@ -1,4 +1,4 @@
-"""ε-mutation 与更优轨迹原地替换。"""
+"""ε-mutation 与更优轨迹原地替换，对应论文3.2.3. MEMORY EVOLUTION MECHANISM的ϵ-Mutation and Evolutionary Replacement。"""
 
 from __future__ import annotations
 

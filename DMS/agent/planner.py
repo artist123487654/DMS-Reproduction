@@ -1,4 +1,4 @@
-"""高层 Planner。"""
+"""高层 Planner Agent：分解总任务为子任务。"""
 
 from __future__ import annotations
 

@@ -59,7 +59,7 @@ def load_config(path: str | Path) -> DMSConfig:
 
 
 class DarwinianMemorySystem:
-    """训练免费的自调节记忆系统门面。"""
+    """训练自调节记忆系统门面。"""
 
     def __init__(
         self,

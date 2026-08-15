@@ -1,4 +1,4 @@
-"""MemoryBank：SQLite 索引 + 轨迹文件存储。"""
+"""MemoryBank：SQLite 索引 + 轨迹文件存储，对应论文3.2.1. MEMORY CONSTRUCTION"""
 
 from __future__ import annotations
 

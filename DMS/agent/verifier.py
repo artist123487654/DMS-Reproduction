@@ -1,4 +1,4 @@
-"""子任务验证。"""
+"""子任务验证 Agent：验证子任务是否成功。"""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Planner-Actor Agent，挂接 AndroidWorld 与三种记忆后端。"""
+"""脚本负责将Planner Agent和Actor Agent结合起来，形成一个完整的Agent。"""
 
 from __future__ import annotations
 

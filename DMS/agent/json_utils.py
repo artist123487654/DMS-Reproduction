@@ -1,4 +1,4 @@
-"""轻量 JSON 抽取，避免强依赖 android_world.agent_utils。"""
+"""该脚本负责从Agent的输出中提取JSON对象，避免强依赖 android_world.agent_utils。"""
 
 from __future__ import annotations
 

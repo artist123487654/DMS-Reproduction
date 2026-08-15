@@ -1,4 +1,4 @@
-"""底层 Actor：逐步生成原子动作。"""
+"""底层 Actor Agent：逐步生成原子动作。"""
 
 from __future__ import annotations
 

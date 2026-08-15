@@ -1,4 +1,4 @@
-"""DMS 核心数据结构。"""
+"""DMS 核心数据结构，对应论文3.2.1. MEMORY CONSTRUCTION。"""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""贝叶斯声誉与风险抑制（§3.2.4）。"""
+"""贝叶斯声誉与风险抑制（§3.2.4），对应论文3.2.4. RISK ASSESSMENT AND FEEDBACK REGULATION"""
 
 from __future__ import annotations
 

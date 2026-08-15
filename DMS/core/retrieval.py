@@ -1,4 +1,4 @@
-"""双因子检索：Score = sim(pre)·sim(goal)。"""
+"""双因子检索：Score = sim(pre)·sim(goal), 对应论文3.2.2. MEMORY UTILIZATION MECHANISM的Dual-Factor Retrieval。"""
 
 from __future__ import annotations
 
