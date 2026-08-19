@@ -10,7 +10,7 @@ from typing import Iterable
 
 import numpy as np
 
-from .types import MemoryEntry, MemoryMeta, Plan, TrajectoryStep
+from .types import MemoryEntry, MemoryMeta, Plan, TrajectoryStep, action_step_count
 
 
 class MemoryBank:
@@ -79,9 +79,9 @@ class MemoryBank:
         emb_goal: np.ndarray | None = None,
         mem_id: str | None = None,
     ) -> MemoryEntry:
-        # 过滤单步原子轨迹，避免碎片化
-        if len(trajectory) <= 1:
-            raise ValueError("拒绝 |τ|=1 的碎片记忆")
+        # 底层兜底：至少 1 个有效动作；>1 规则由 commit 层按官方过滤
+        if action_step_count(trajectory) < 1:
+            raise ValueError("拒绝无有效动作的碎片记忆")
 
         mem_id = mem_id or str(uuid.uuid4())
         entry = MemoryEntry(
@@ -159,7 +159,15 @@ class MemoryBank:
 
     # ---------- 更新记忆 ----------
     def update_entry(self, entry: MemoryEntry, *, emb_pre: np.ndarray | None = None, emb_goal: np.ndarray | None = None) -> None:
-        self._write_traj(entry)
+        # 有 τ 才回写文件；避免 load_traj=False 时用 [] 覆盖磁盘
+        if entry.trajectory:
+            self._write_traj(entry)
+            traj_len = entry.length
+        else:
+            row = self._conn.execute(
+                "SELECT traj_len FROM memories WHERE id=?", (entry.id,)
+            ).fetchone()
+            traj_len = int(row["traj_len"]) if row is not None else 0
         self._conn.execute(
             """
             UPDATE memories SET
@@ -181,7 +189,7 @@ class MemoryBank:
                 entry.success_count,
                 entry.fail_count,
                 entry.meta.description,
-                entry.length,
+                traj_len,
                 _emb_to_blob(emb_pre),
                 _emb_to_blob(emb_goal),
                 entry.id,

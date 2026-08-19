@@ -33,6 +33,13 @@ class Actor:
         image: np.ndarray | None,
         history: list[str],
     ) -> ActorStep:
+        # 开 App 子任务锁死 open_app，不调 VLM 翻抽屉
+        from agent.app_launch import try_forced_open_app_step
+
+        forced = try_forced_open_app_step(plan, history)
+        if forced is not None:
+            return forced
+
         user = prompts.actor_user_prompt(
             task, plan.precondition, plan.goal, screen_desc, history
         )

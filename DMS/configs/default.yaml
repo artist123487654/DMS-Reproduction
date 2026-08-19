@@ -7,13 +7,18 @@ survival:
   gamma: 1.0          # 可靠性惩罚强度
 
 capacity:
-  C_min: 80           # 触发修剪的容量下界（论文未给整数，先取可调默认）
+  C_min: 80           # 低于此不修剪；修剪后至少保留这么多
   C_max: 300
-  delta_step: 20      # 高质量饱和时扩张步长
+  delta_step: 20
 
 retrieval:
   top_k: 1
-  min_score: 0.35     # 双因子乘积阈值，过低易误召回
+  min_score: 0.55     # 略放宽，便于跨实例（不同人名等）复用；过低易误召回
+
+# Planner / Actor 步数（小实验默认；官方参考多为 25/15，过慢可保持本档）
+agent:
+  max_planner_steps: 8    # 全局规划轮次上限
+  max_actor_steps: 12     # 每个子任务 Actor 步数上限
 
 # 本地嵌入（可配置依赖）
 embedding:

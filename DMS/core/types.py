@@ -26,6 +26,26 @@ class TrajectoryStep:
     ui_hint: str | None = None
 
 
+_SKIP_ACTION_TYPES = frozenset({"status", "wait", None, ""})
+
+
+def action_step_count(trajectory: list[TrajectoryStep]) -> int:
+    """有效动作步数（排除 status/wait），对齐官方 llm_io 含代码的步计数。"""
+    return sum(
+        1
+        for s in trajectory
+        if (s.action or {}).get("action_type") not in _SKIP_ACTION_TYPES
+    )
+
+
+def should_persist_trajectory(
+    trajectory: list[TrajectoryStep], *, exploring: bool = False
+) -> bool:
+    """官方：step_count > 1；探索时 step_count >= 1 也可入库。"""
+    n = action_step_count(trajectory)
+    return n > 1 or (exploring and n >= 1)
+
+
 @dataclass
 class MemoryMeta:
     """记忆元数据。"""

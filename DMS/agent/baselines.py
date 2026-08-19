@@ -8,7 +8,7 @@ from typing import Protocol
 from core.bank import MemoryBank
 from core.regulate import DarwinianMemorySystem
 from core.retrieval import DualFactorRetriever, Embedder, EmbeddingConfig, RetrievalConfig, build_embedder
-from core.types import MemoryEntry, Plan, TrajectoryStep
+from core.types import MemoryEntry, Plan, TrajectoryStep, should_persist_trajectory
 
 
 @dataclass
@@ -32,6 +32,8 @@ class MemoryBackend(Protocol):
         success: bool,
         decision: MemoryDecision,
     ) -> None: ...
+    def on_episode_end(self, env_success: bool) -> None: ...
+    def begin_episode(self) -> None: ...
     def size(self) -> int: ...
 
 
@@ -53,6 +55,12 @@ class ZeroShotMemory:
     def commit(self, plan, trajectory, *, success, decision) -> None:
         return
 
+    def on_episode_end(self, env_success: bool) -> None:
+        return
+
+    def begin_episode(self) -> None:
+        return
+
     def size(self) -> int:
         return 0
 
@@ -67,6 +75,7 @@ class StaticAppendMemory:
     name: str = "baseline_b_static"
     logical_step: int = 0
     _log: list[str] = field(default_factory=list)
+    _episode_added: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if self.retriever is None:
@@ -83,17 +92,19 @@ class StaticAppendMemory:
         if not hits:
             return MemoryDecision(None, 0.0, True)
         entry, score = hits[0]
-        # 静态记忆：命中则直接复放，无 mutation
         return MemoryDecision(entry, score, False)
 
     def suppress(self, plan: Plan) -> bool:
         return False
 
     def commit(self, plan, trajectory, *, success, decision) -> None:
-        if not success or len(trajectory) <= 1:
+        if not success or not should_persist_trajectory(trajectory):
+            return
+        # 复放成功不重复入库
+        if decision.entry is not None:
             return
         emb_pre, emb_goal = self.retriever.embed_plan(plan)
-        self.bank.add(
+        entry = self.bank.add(
             plan,
             trajectory,
             logical_step=self.logical_step,
@@ -101,7 +112,15 @@ class StaticAppendMemory:
             emb_pre=emb_pre,
             emb_goal=emb_goal,
         )
+        self._episode_added.append(entry.id)
         self._log.append(plan.goal)
+
+    def on_episode_end(self, env_success: bool) -> None:
+        # 子目标成功则保留；不因整任务环境分失败而撤条
+        self._episode_added.clear()
+
+    def begin_episode(self) -> None:
+        self._episode_added.clear()
 
     def size(self) -> int:
         return len(self.bank)
@@ -113,6 +132,8 @@ class DarwinianBackend:
 
     dms: DarwinianMemorySystem
     name: str = "dms"
+    _episode_ids: list[str] = field(default_factory=list)
+    _episode_added: list[str] = field(default_factory=list)
 
     def on_step_begin(self) -> None:
         self.dms.tick()
@@ -126,14 +147,39 @@ class DarwinianBackend:
 
     def commit(self, plan, trajectory, *, success, decision) -> None:
         if success:
-            self.dms.commit_success(
+            exploring = bool(decision.mutate)
+            if not should_persist_trajectory(trajectory, exploring=exploring):
+                return
+            before = self.dms.memory_size()
+            entry = self.dms.commit_success(
                 plan,
                 trajectory,
                 from_memory=decision.entry,
                 mutated=decision.mutate and decision.entry is not None,
             )
+            mid = getattr(entry, "id", None) or getattr(decision.entry, "id", None)
+            if mid:
+                mid = str(mid)
+                self._episode_ids.append(mid)
+                if entry is not None and self.dms.memory_size() > before:
+                    self._episode_added.append(mid)
         else:
             self.dms.commit_failure(plan, from_memory=decision.entry)
+            if decision.entry is not None:
+                self._episode_ids.append(decision.entry.id)
+
+    def on_episode_end(self, env_success: bool) -> None:
+        """整任务结束：不因环境 score=0 删除本局已成功子任务记忆。
+        plan 级失败已在 commit_failure / 复放核查里处理。
+        """
+        if not env_success:
+            self.dms.risk_state.update_global(False, self.dms.cfg.risk)
+        self._episode_ids.clear()
+        self._episode_added.clear()
+
+    def begin_episode(self) -> None:
+        self._episode_ids.clear()
+        self._episode_added.clear()
 
     def size(self) -> int:
         return self.dms.memory_size()

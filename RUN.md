@@ -31,28 +31,28 @@ export OPENROUTER_API_KEY='sk-or-...'
 ## 2. 启动 Android 模拟器
 
 ```bash
-export ANDROID_HOME="${ANDROID_HOME:-$HOME/Android/Sdk}"
-export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH"
-
-$ANDROID_HOME/emulator/emulator \
-  -avd AndroidWorldAvd \
-  -no-snapshot -no-window \
-  -gpu swiftshader_indirect \
-  -grpc 8554 \
-  >/tmp/emulator.log 2>&1 &
-
-adb wait-for-device
-until [[ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "1" ]]; do sleep 2; done
-adb devices   # 应看到 emulator-5554  device
+cd code/DMS
+bash scripts/start_emulator.sh
+# 应看到 emulator-5554 device；失败看: tail -n 40 /tmp/emulator.log
 ```
 
-首次装 App（只做一次）：
+
+首次装 App / 生成 snapshot（**强烈建议做一次**；否则会一直 `Snapshot not found`）：
 
 ```bash
+# 可能要跑较久（装包+快照）。成功后 snapshots 在模拟器内：
+#   /data/data/android_world/snapshots/
 bash scripts/run_test.sh --perform_emulator_setup --model qwen/qwen3-vl-8b-instruct
 ```
 
-之后不要再加 `--perform_emulator_setup`。
+确认快照（应能看到 markor / contacts 等包名目录）：
+
+```bash
+adb shell ls /data/data/android_world/snapshots/ | head
+```
+
+之后正式实验**不要**再加 `--perform_emulator_setup`。
+若模拟器数据被清掉，需重新 setup。
 
 ---
 
@@ -63,13 +63,31 @@ bash scripts/run_test.sh --perform_emulator_setup --model qwen/qwen3-vl-8b-instr
 | 档位 | 命令 |
 |------|------|
 | Test（1 任务×5 轮，先跑） | `bash scripts/run_test.sh --model qwen/qwen3-vl-8b-instruct` |
-| Minimum（5 任务×5 轮） | `bash scripts/run_min.sh --model qwen/qwen3-vl-8b-instruct` |
-| Minimum 三组 a/b/dms | `bash scripts/run_min_baselines.sh --model qwen/qwen3-vl-8b-instruct` |
-| Preferred | `bash scripts/run_preferred.sh --model qwen/qwen3-vl-8b-instruct` |
-| Preferred 三组 | `bash scripts/run_preferred_baselines.sh --model qwen/qwen3-vl-8b-instruct` |
-| Full（很慢） | `bash scripts/run_full_split.sh --model qwen/qwen3-vl-8b-instruct` |
+| Minimum（5 任务×5 轮，默认 dms） | `bash scripts/run_min.sh --model qwen/qwen3-vl-8b-instruct` |
+| Minimum 基线 a/b | `bash scripts/run_min_baselines.sh --model qwen/qwen3-vl-8b-instruct` |
+| Preferred（默认 dms） | `bash scripts/run_preferred.sh --model qwen/qwen3-vl-8b-instruct` |
+| Preferred 基线 a/b | `bash scripts/run_preferred_baselines.sh --model qwen/qwen3-vl-8b-instruct` |
+| Full（很慢，默认 dms） | `bash scripts/run_full_split.sh --model qwen/qwen3-vl-8b-instruct` |
 
 可选：`BACKEND=a`、`TRIALS=1`（快速冒烟）、`TASK=MarkorCreateNote`（仅 test）。
+
+### 关掉 VSCode 也不中断（推荐长实验）
+
+前缀加 `DETACH=1`，用 `nohup` 脱离远程会话：
+
+```bash
+DETACH=1 bash scripts/run_preferred.sh --model qwen/qwen3-vl-8b-instruct
+DETACH=1 bash scripts/run_min_baselines.sh --model qwen/qwen3-vl-8b-instruct
+```
+
+日志与 PID 在 `DMS/logs/`。查看 / 停止：
+
+```bash
+tail -f logs/run_*.log          # 或脚本打印的具体路径
+kill $(cat logs/run_xxx.pid)
+```
+
+模拟器请用 `bash scripts/start_emulator.sh`（内部已 nohup，关掉 VSCode 一般不会停）。
 
 结果在：`DMS/results/aw_{backend}_{suite}_{model}_{时间戳}/`  
 记忆在同目录：`memory_banks/{a|b|dms}/`（`index.sqlite` + `traj/*.json`），**不是** `DMS/memory_banks/`。

@@ -47,7 +47,7 @@ code/
 | `preferred` | `scripts/run_preferred.sh` | 每 App 采 1～2 任务 × 5 轮 | 跨应用 Preferred |
 | `full` | `scripts/run_full_split.sh` | AndroidWorld 全集 × 5 轮 | 完整 Split（耗时长） |
 
-对应 `*_baselines.sh` 会依次跑 `a` → `b` → `dms`。
+对应 `*_baselines.sh` 会依次跑 `a` → `b`（不含 DMS；DMS 用同档的 `run_min.sh` / `run_preferred.sh` 等）。
 
 ## 环境要求
 
@@ -156,3 +156,12 @@ export EMBEDDING_MODEL_PATH=/path/to/bge-small-en-v1.5
 ## 声明
 
 本仓库为独立复现，用于研究 / 课程考核，**非论文作者官方发布**。因模型规模、解码策略与任务子集不同，结果可能与原论文存在差异。
+
+## 实现边界（机制 vs 胶水）
+
+- **`DMS/core/`**：Survival / 检索 / 修剪 / mutation 等按论文机制实现；**不要为涨 SR 改公式**。
+- **`DMS/agent/`（PA 胶水）**：独立执行栈，**不是**官方 Droid/CodeAct 端口。允许加与官方**同意图**的兜底，例如：
+  - 开 App 子任务不走记忆复放、动作用 `open_app` 短路（对应官方 AppStarter 原子启动）
+  - Planner 禁止重复已 OK 子目标（对应官方 `NO REDOING`）
+  - 子任务 FAIL 不清整队（避免复放空转烧规划步）
+- 文档里「对应官方」= **意图/约束同类**，不是「逐行一致」。论文主表 SR 不承诺复现。

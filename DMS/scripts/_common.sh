@@ -3,6 +3,10 @@
 # 不绑定任何用户名 / 绝对路径；假定目录结构为：
 #   <repo>/code/DMS/scripts/this
 #   <repo>/code/android_world/
+#
+# 后台保活（关掉 VSCode / SSH 也不停）：
+#   DETACH=1 bash scripts/run_preferred.sh --model qwen/qwen3-vl-8b-instruct
+# 日志在 DMS/logs/；用 tail -f 查看，kill $(cat ...pid) 停止。
 
 _dms_common_init() {
   local here root aw
@@ -58,6 +62,37 @@ _dms_common_init() {
   echo "[env] DMS_ROOT=${DMS_ROOT}"
   echo "[env] ANDROID_WORLD_ROOT=${ANDROID_WORLD_ROOT}"
   echo "[env] PYTHON=${DMS_PYTHON} ($("${DMS_PYTHON}" -c 'import sys; print(sys.executable)'))"
+}
+
+# 前台直接跑；DETACH=1 时 nohup 后台跑，断开远程会话不中断。
+dms_exec() {
+  if [[ "${DETACH:-0}" != "1" && "${DETACH:-}" != "true" && "${DETACH:-}" != "yes" ]]; then
+    "$@"
+    return $?
+  fi
+
+  mkdir -p "${DMS_ROOT}/logs"
+  local stamp base log pidf
+  stamp="$(date +%Y%m%d_%H%M%S)"
+  base="run_${stamp}"
+  log="${DMS_ROOT}/logs/${base}.log"
+  pidf="${DMS_ROOT}/logs/${base}.pid"
+
+  {
+    echo "========== DMS detach =========="
+    echo "time: $(date -Is)"
+    echo "cmd:  $*"
+    echo "================================"
+  } >"${log}"
+
+  nohup "$@" >>"${log}" 2>&1 </dev/null &
+  echo $! >"${pidf}"
+  disown $! 2>/dev/null || true
+
+  echo "[detach] pid=$(cat "${pidf}")"
+  echo "[detach] log=${log}"
+  echo "[detach] 查看: tail -f ${log}"
+  echo "[detach] 停止: kill \$(cat ${pidf})"
 }
 
 _dms_common_init

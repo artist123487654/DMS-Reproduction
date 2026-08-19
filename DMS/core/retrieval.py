@@ -19,7 +19,7 @@ class Embedder(Protocol):
 @dataclass
 class RetrievalConfig:
     top_k: int = 1
-    min_score: float = 0.35
+    min_score: float = 0.55
 
 
 @dataclass

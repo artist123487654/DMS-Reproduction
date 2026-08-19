@@ -217,7 +217,15 @@ def run_one_task(
         success_score = 0.0
         step_logs.append({"is_successful_error": repr(e)})
 
-    agent_successful = bool(is_done and success_score == 1.0)
+    # 以环境校验为准；done 仅表示 agent 是否主动结束
+    env_ok = success_score == 1.0
+    if hasattr(agent, "notify_env_success"):
+        try:
+            agent.notify_env_success(env_ok)
+        except Exception as e:  # noqa: BLE001
+            step_logs.append({"memory_episode_end_error": repr(e)})
+
+    agent_successful = bool(env_ok)
     elapsed = time.time() - t0
     metrics = {}
     if hasattr(agent, "core"):
@@ -394,6 +402,13 @@ def main() -> None:
     memory, dms = build_memory(args.backend, out_dir)
     mem_root = out_dir / "memory_banks" / args.backend
 
+    import yaml
+
+    _agent_yaml = yaml.safe_load((ROOT / "configs" / "default.yaml").read_text(encoding="utf-8")) or {}
+    _agent = dict(_agent_yaml.get("agent") or {})
+    max_planner_steps = int(_agent.get("max_planner_steps", 8))
+    max_actor_steps = int(_agent.get("max_actor_steps", 12))
+
     from metrics.plot_metrics import MetricsPlotter
     from metrics.round_metrics import RoundMetricsRecorder
 
@@ -405,7 +420,14 @@ def main() -> None:
     )
 
     def agent_factory(e):
-        return DMSPlannerActorAgent(e, llm, memory, name=f"dms_pa_{args.backend}")
+        return DMSPlannerActorAgent(
+            e,
+            llm,
+            memory,
+            name=f"dms_pa_{args.backend}",
+            max_planner_steps=max_planner_steps,
+            max_actor_steps=max_actor_steps,
+        )
 
     def pruned_total() -> int:
         if dms is None:

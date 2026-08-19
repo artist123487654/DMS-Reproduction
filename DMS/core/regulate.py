@@ -20,7 +20,7 @@ from .retrieval import (
 )
 from .risk import RiskConfig, RiskState, should_suppress_plan
 from .survival import SurvivalConfig, survival_value
-from .types import MemoryEntry, Plan, TrajectoryStep
+from .types import MemoryEntry, Plan, TrajectoryStep, should_persist_trajectory
 
 
 @dataclass
@@ -158,8 +158,16 @@ class DarwinianMemorySystem:
             self.maybe_prune()
             return from_memory
 
-        if len(trajectory) <= 1:
-            return None  # 碎片不入库
+        # 复放成功：只记成功/复用，禁止再 add 一条重复轨迹
+        if from_memory is not None:
+            from_memory.success_count += 1
+            from_memory.meta.last_used_step = self.logical_step
+            self.bank.update_entry(from_memory)
+            return from_memory
+
+        # 默认 |τ|>1；探索/mutation 时允许 |τ|>=1
+        if not should_persist_trajectory(trajectory, exploring=mutated):
+            return None
 
         emb_pre, emb_goal = self.retriever.embed_plan(plan)
         entry = self.bank.add(
