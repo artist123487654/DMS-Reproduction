@@ -40,7 +40,10 @@ adb shell ls /data/data/android_world/snapshots/ | head
 
 ## 3. 跑实验
 
-均在 `code/DMS` 下执行；默认模型：`qwen/qwen3-vl-8b-instruct`。
+均在 `code/DMS` 下执行；默认模型：`qwen/qwen3-vl-8b-instruct`。  
+执行器为独立 **CodeAct**（Planner → 写 Python 调工具 / 命中则复放轨迹），挂自研 DMS；**不**从官方 DMS 仓库 import。
+
+正式评测前确认快照：`adb shell ls /data/data/android_world/snapshots/`；旧 `memory_banks` 建议清空后空库重跑。
 
 | 档位 | 命令 |
 |------|------|

@@ -1,4 +1,4 @@
-"""高层 Planner Agent：分解总任务为子任务。"""
+"""高层 Planner：分解总任务为子任务（供 CodeAct 执行）。"""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from agent import prompts
+from agent import codeact_prompts as prompts
 from agent.json_utils import extract_json_obj
 from core.types import Plan
 from models.llm_protocol import MultimodalLLM

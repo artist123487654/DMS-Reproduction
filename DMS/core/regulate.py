@@ -20,13 +20,8 @@ from .retrieval import (
 )
 from .risk import RiskConfig, RiskState, should_suppress_plan
 from .survival import SurvivalConfig, survival_value
-from .types import (
-    MemoryEntry,
-    Plan,
-    TrajectoryStep,
-    is_structural_trajectory,
-    should_persist_trajectory,
-)
+from .types import MemoryEntry, Plan, TrajectoryStep, should_persist_trajectory
+
 
 
 @dataclass
@@ -118,16 +113,11 @@ class DarwinianMemorySystem:
 
     # 检索 / mutation
     def query(self, plan: Plan) -> tuple[MemoryEntry | None, float, bool]:
-        """返回 (命中记忆, score, 是否 mutation)。mutation 时由 Actor 重跑。"""
+        """返回 (命中记忆, score, 是否 mutation)。mutation 时由 CodeAct 重跑。"""
         hits = self.retriever.retrieve(plan)
-        # 跳过含 input_text 的填槽记忆，只复用结构轨迹
-        entry, score = None, 0.0
-        for cand, sc in hits:
-            if is_structural_trajectory(cand.trajectory):
-                entry, score = cand, sc
-                break
-        if entry is None:
-            return None, 0.0, True  # 未命中 → 必须生成
+        if not hits:
+            return None, 0.0, True
+        entry, score = hits[0]
         mutate = should_mutate(self.cfg.mutation)
         if mutate:
             self.stats["mutated"] += 1

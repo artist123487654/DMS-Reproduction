@@ -13,12 +13,12 @@ capacity:
 
 retrieval:
   top_k: 1
-  # B 与 DMS 共用同一双因子门槛
+  # 对齐常用 DMS 调用：子任务 Goal 双因子乘积门槛
   min_score: 0.95
 
 agent:
   max_planner_steps: 8
-  max_actor_steps: 12
+  max_codeact_turns: 12
 
 embedding:
   model_name_or_path: BAAI/bge-small-en-v1.5

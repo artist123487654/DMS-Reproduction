@@ -1,4 +1,4 @@
-"""子任务验证 Agent：验证子任务是否成功。"""
+"""子任务验证：复放后的 Audit-on-Use。"""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from agent import prompts
+from agent import codeact_prompts as prompts
 from agent.json_utils import extract_json_obj
 from core.types import Plan
 from models.llm_protocol import MultimodalLLM

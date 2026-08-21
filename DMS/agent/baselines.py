@@ -8,13 +8,7 @@ from typing import Protocol
 from core.bank import MemoryBank
 from core.regulate import DarwinianMemorySystem
 from core.retrieval import DualFactorRetriever, Embedder, EmbeddingConfig, RetrievalConfig, build_embedder
-from core.types import (
-    MemoryEntry,
-    Plan,
-    TrajectoryStep,
-    is_structural_trajectory,
-    should_persist_trajectory,
-)
+from core.types import MemoryEntry, Plan, TrajectoryStep, should_persist_trajectory
 
 
 @dataclass
@@ -45,8 +39,6 @@ class MemoryBackend(Protocol):
 
 @dataclass
 class ZeroShotMemory:
-    """Baseline A：永不读写记忆。"""
-
     name: str = "baseline_a_zeroshot"
 
     def on_step_begin(self) -> None:
@@ -73,7 +65,7 @@ class ZeroShotMemory:
 
 @dataclass
 class StaticAppendMemory:
-    """Baseline B：静态追加记忆，只增不剪。"""
+    """Baseline B：静态追加，只增不剪。"""
 
     bank: MemoryBank
     retriever: DualFactorRetriever | None = None
@@ -95,11 +87,10 @@ class StaticAppendMemory:
 
     def decide(self, plan: Plan) -> MemoryDecision:
         hits = self.retriever.retrieve(plan)
-        for entry, score in hits:
-            # 旧库中的填槽轨迹禁止复放
-            if is_structural_trajectory(entry.trajectory):
-                return MemoryDecision(entry, score, False)
-        return MemoryDecision(None, 0.0, True)
+        if not hits:
+            return MemoryDecision(None, 0.0, True)
+        entry, score = hits[0]
+        return MemoryDecision(entry, score, False)
 
     def suppress(self, plan: Plan) -> bool:
         return False
@@ -175,6 +166,9 @@ class DarwinianBackend:
 
     def on_episode_end(self, env_success: bool) -> None:
         if not env_success:
+            if self._episode_added:
+                n = self.dms.bank.delete_many(self._episode_added)
+                self.dms.stats["pruned"] = int(self.dms.stats.get("pruned", 0)) + n
             self.dms.risk_state.update_global(False, self.dms.cfg.risk)
         self._episode_ids.clear()
         self._episode_added.clear()
@@ -196,7 +190,6 @@ def build_backend(
     embedding_cfg: EmbeddingConfig | None = None,
     retrieval_cfg: RetrievalConfig | None = None,
 ) -> MemoryBackend:
-    """构建记忆后端。"""
     kind = kind.lower()
     if kind in {"a", "zero", "zeroshot", "baseline_a"}:
         return ZeroShotMemory()

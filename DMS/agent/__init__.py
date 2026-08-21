@@ -1,10 +1,10 @@
-"""agent 包导出。"""
+"""Agent 层：CodeAct 执行器 + DMS 记忆后端。"""
 
 from agent.baselines import DarwinianBackend, StaticAppendMemory, ZeroShotMemory, build_backend
-from agent.pa_agent import PALiteAgentCore
+from agent.codeact_agent import CodeActAgentCore
 
 __all__ = [
-    "PALiteAgentCore",
+    "CodeActAgentCore",
     "ZeroShotMemory",
     "StaticAppendMemory",
     "DarwinianBackend",
