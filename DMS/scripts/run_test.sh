@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Test 任务：1 个短任务 × 5 round（默认可出 SR/MRR/mem 曲线；低成本冒烟仍可用 TRIALS=1）
+# Test：单任务 × 5 round；冒烟可用 TRIALS=1
 #   bash scripts/run_test.sh
 #   DETACH=1 bash scripts/run_test.sh --model qwen/qwen3-vl-8b-instruct
 #   TRIALS=1 bash scripts/run_test.sh

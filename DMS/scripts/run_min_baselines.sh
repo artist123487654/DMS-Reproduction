@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Minimum：只跑 Baseline A / B（不含 DMS；DMS 用 run_min.sh）。
+# Minimum：只跑 A / B；DMS 用 run_min.sh
 #   DETACH=1 bash scripts/run_min_baselines.sh --model qwen/qwen3-vl-8b-instruct
 set -euo pipefail
 

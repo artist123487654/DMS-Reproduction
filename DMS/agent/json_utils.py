@@ -1,4 +1,4 @@
-"""该脚本负责从Agent的输出中提取JSON对象，避免强依赖 android_world.agent_utils。"""
+"""从模型输出里抠 JSON。"""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ def extract_json_obj(text: str) -> dict[str, Any] | list[Any] | None:
     candidates = []
     if fence:
         candidates.append(fence.group(1))
-    # 再找第一个大括号/中括号块（非贪婪可能不够，用栈扫描）
+    # 再找 {...} / [...]，用栈扫描
     candidates.extend(_brace_slices(text))
     for c in candidates:
         obj = _try_parse(c)

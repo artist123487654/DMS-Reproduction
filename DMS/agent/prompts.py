@@ -13,14 +13,19 @@ Output JSON only:
 Decomposition rules:
 - Output 1 to 3 sub-tasks (ordered). A single next step is fine.
 - Never return an empty plans list when task_done is false.
-- Keep goals small and checkable (open app, open editor, type name, save, etc.).
+- Keep goals small and checkable.
 - Launching apps: write goals like "Open Markor via open_app" / "Open Contacts via open_app".
   Use Contacts (not Phone) for contact tasks; Files for file tasks; Simple Calendar Pro for calendar.
   Do NOT plan "open the app drawer / scroll / search for the icon".
-- CRITICAL — copy literals from the user task into goals: exact file names (incl. extension),
-  note body text, contact names, phone numbers, event titles/times. Do not paraphrase them away.
-- Prefer one goal that types the FULL file name with extension (e.g. neat_umbrella_copy.md)
-  over separate "change .md to .txt" micro-steps.
+- CRITICAL — split STRUCTURE vs SLOT-FILL when possible:
+  * Structure (navigation/UI): open app, tap +, open create form, tap Save — NO instance values.
+  * Slot-fill (typing): enter name/phone/file/body — abstract as slots from the user task,
+    e.g. "Enter the contact name from the user task", "Enter the phone number from the user task",
+    "Enter the target file name (with extension) from the user task".
+  Do NOT put concrete person names, phone numbers, file names, note bodies, or event titles
+  into goals. Refer to them as slots tied to the user task.
+- Prefer one fill sub-goal for the full slot (e.g. full file name with extension) over
+  micro-steps like "change .md to .txt".
 - NO REDOING: if Progress shows OK-gen/OK-replay for a sub-goal, do NOT plan that action again.
   Advance to the next unfinished part of the user task.
 - If Progress shows FAIL, propose a different next step from the CURRENT screen.
@@ -47,6 +52,12 @@ The action MUST be one of these JSON objects:
 {"action_type":"wait"}
 {"action_type":"status","goal_status":"complete"}
 {"action_type":"status","goal_status":"infeasible"}
+
+Slot resolution (critical for input_text):
+- Sub-task goals may say "the contact name / phone / file name / text from the user task".
+- When typing, resolve the CONCRETE string from Overall task (exact spelling) into input_text.
+- Never invent placeholders like <name>; never leave slots empty.
+- Do not reuse names/numbers from Action history if they differ from Overall task.
 
 Completion:
 - Judge ONLY the current sub-task goal, not the full user task.
@@ -82,6 +93,7 @@ ACTION_SPACE_HINT = (
     "Use only valid indices, or click x,y from a listed bbox. "
     "If history shows execute errors, choose a different action. "
     "To open Markor/Contacts/Files/etc., use open_app — do not hunt the app drawer. "
+    "If typing is needed, take exact strings from Overall task. "
     "If the current sub-task goal is clearly met, output status complete."
 )
 
@@ -93,7 +105,8 @@ def planner_user_prompt(task: str, screen_desc: str, progress: str) -> str:
         f"Screen:\n{screen_desc}\n"
         "Decompose the next 1-3 sub-task plans (never an empty plans list "
         "unless the full user goal is already done). "
-        "Embed exact file names / texts / numbers from the user task. "
+        "Split structure vs slot-fill; abstract instance values as slots "
+        "(contact name / phone / file name from the user task) — do NOT copy literals into goals. "
         "Do not repeat any sub-goal already marked OK in Progress. "
         "For opening known apps, plan open_app — not the app drawer. JSON only."
     )
@@ -114,6 +127,7 @@ def actor_user_prompt(
         f"Action history:\n{hist}\n"
         f"{ACTION_SPACE_HINT}\n"
         f"Screen:\n{screen_desc}\n"
+        "If this sub-task needs typing, resolve exact strings from Overall task. "
         "Output the next action (or status complete if this sub-task is already done)."
     )
 

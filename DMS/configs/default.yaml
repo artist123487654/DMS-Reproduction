@@ -1,50 +1,48 @@
-# 论文附录超参
+# 默认超参
 survival:
-  v_new: 1.0          # 新记忆冷启动保护
-  t_base: 30.0        # 基础半衰期
-  mu: 15.0            # 使用次数拉长半衰期（论文 longevity 系数）
-  beta: 0.5           # 衰减陡峭度
-  gamma: 1.0          # 可靠性惩罚强度
+  v_new: 1.0
+  t_base: 30.0
+  mu: 15.0
+  beta: 0.5
+  gamma: 1.0
 
 capacity:
-  C_min: 80           # 低于此不修剪；修剪后至少保留这么多
-  C_max: 300
-  delta_step: 20
+  C_min: 30
+  C_max: 80
+  delta_step: 10
 
 retrieval:
   top_k: 1
-  min_score: 0.55     # 略放宽，便于跨实例（不同人名等）复用；过低易误召回
+  # B 与 DMS 共用同一双因子门槛
+  min_score: 0.95
 
-# Planner / Actor 步数（小实验默认；官方参考多为 25/15，过慢可保持本档）
 agent:
-  max_planner_steps: 8    # 全局规划轮次上限
-  max_actor_steps: 12     # 每个子任务 Actor 步数上限
+  max_planner_steps: 8
+  max_actor_steps: 12
 
-# 本地嵌入（可配置依赖）
 embedding:
   model_name_or_path: BAAI/bge-small-en-v1.5
   device: cpu
   normalize: true
 
 mutation:
-  epsilon: 0.1        # ε-mutation 探索概率
+  epsilon: 0.1
 
 risk:
-  m: 4.0              # 先验强度
-  t_global_init: 0.3  # 全局失败率初值
-  lambda_pen: 0.3     # 动态阈值敏感度
-  tau_base: 0.55      # 基础拒绝阈值
+  m: 4.0
+  t_global_init: 0.3
+  lambda_pen: 0.3
+  tau_base: 0.55
 
 storage:
   root: memory_banks/dms
   db_name: index.sqlite
   traj_dirname: traj
 
-# 推荐：OpenRouter / OpenAI API（本机不加载模型）
 vlm:
   # OpenRouter: export OPENROUTER_API_KEY=sk-or-...
   # OpenAI:     export OPENAI_API_KEY=sk-... && export VLM_PROVIDER=openai
-  provider_env: VLM_PROVIDER          # openrouter | openai | dashscope
+  provider_env: VLM_PROVIDER
   api_key_envs: [OPENROUTER_API_KEY, OPENAI_API_KEY, QWEN_API_KEY, DASHSCOPE_API_KEY]
   openrouter_model: qwen/qwen3-vl-8b-instruct
   openai_model: gpt-4o

@@ -1,4 +1,4 @@
-"""双因子检索：Score = sim(pre)·sim(goal), 对应论文3.2.2. MEMORY UTILIZATION MECHANISM的Dual-Factor Retrieval。"""
+"""双因子检索：Score = sim(pre) * sim(goal)。"""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ class Embedder(Protocol):
 @dataclass
 class RetrievalConfig:
     top_k: int = 1
-    min_score: float = 0.55
+    min_score: float = 0.95
 
 
 @dataclass

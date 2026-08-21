@@ -1,4 +1,4 @@
-"""Screen description + lightweight Set-of-Marks overlay (independent of official DMS)."""
+"""屏幕描述和索引标记叠加。"""
 
 from __future__ import annotations
 

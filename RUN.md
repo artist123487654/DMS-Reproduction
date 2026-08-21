@@ -11,33 +11,15 @@ code/
 
 ---
 
-## 1. 配置 API Key（先做这一步）
+## 1. 配置 API Key 以及启动 Android 模拟器
 
 ```bash
 source /home/moxy/venvs/android_world/bin/activate
-cd code/DMS
+cd DMS
 
-# OpenRouter（推荐）
-export OPENROUTER_API_KEY='sk-or-...'
+export OPENROUTER_API_KEY='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'
 
-# 或 DashScope
-# export DASHSCOPE_API_KEY='sk-...'
-# export VLM_PROVIDER=dashscope
-# export QWEN_BASE_URL='https://cn-hongkong.dashscope.aliyuncs.com/compatible-mode/v1'
-```
-
----
-
-## 2. 启动 Android 模拟器
-
-```bash
-cd code/DMS
 bash scripts/start_emulator.sh
-# 应看到 emulator-5554 device；失败看: tail -n 40 /tmp/emulator.log
-```
-
-
-首次装 App / 生成 snapshot（**强烈建议做一次**；否则会一直 `Snapshot not found`）：
 
 ```bash
 # 可能要跑较久（装包+快照）。成功后 snapshots 在模拟器内：
@@ -76,8 +58,14 @@ adb shell ls /data/data/android_world/snapshots/ | head
 前缀加 `DETACH=1`，用 `nohup` 脱离远程会话：
 
 ```bash
-DETACH=1 bash scripts/run_preferred.sh --model qwen/qwen3-vl-8b-instruct
 DETACH=1 bash scripts/run_min_baselines.sh --model qwen/qwen3-vl-8b-instruct
+DETACH=1 bash scripts/run_min.sh --model qwen/qwen3-vl-8b-instruct
+
+DETACH=1 bash scripts/run_full_split_baselines.sh --model qwen/qwen3-vl-8b-instruct
+DETACH=1 bash scripts/run_full_split.sh --model qwen/qwen3-vl-8b-instruct
+
+DETACH=1 bash scripts/run_preferred_baselines.sh --model qwen/qwen3-vl-8b-instruct
+DETACH=1 bash scripts/run_preferred.sh --model qwen/qwen3-vl-8b-instruct
 ```
 
 日志与 PID 在 `DMS/logs/`。查看 / 停止：

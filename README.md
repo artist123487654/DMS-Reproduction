@@ -8,9 +8,9 @@ DMS 将 Agent 记忆视为遵循「适者生存」的动态生态：分层意图
 
 | Backend | 说明 |
 |---------|------|
-| `a` | Zero-shot VLM（无记忆） |
-| `b` | 静态追加记忆（只增不剪） |
-| `dms` | 完整达尔文记忆系统 |
+| `a` | 零记忆（≈ 论文 PA-Lite；考核 Baseline A） |
+| `b` | 静态追加、不修剪（考核 Baseline B；与 DMS 共用双因子/`min_score`） |
+| `dms` | 达尔文记忆：Survival + 动态修剪 + ε-mutation 等 |
 
 默认推荐轻量开源多模态模型 **Qwen3-VL-8B-Instruct**（约 8B，符合考核 7B～8B 开源 VLM 要求；原推荐的 Qwen2.5-VL-7B 多数平台已下架）。论文使用更大骨干（如 72B），本复现侧重机制验证，报告中需做 Gap 分析。
 
@@ -160,8 +160,6 @@ export EMBEDDING_MODEL_PATH=/path/to/bge-small-en-v1.5
 ## 实现边界（机制 vs 胶水）
 
 - **`DMS/core/`**：Survival / 检索 / 修剪 / mutation 等按论文机制实现；**不要为涨 SR 改公式**。
-- **`DMS/agent/`（PA 胶水）**：独立执行栈，**不是**官方 Droid/CodeAct 端口。允许加与官方**同意图**的兜底，例如：
-  - 开 App 子任务不走记忆复放、动作用 `open_app` 短路（对应官方 AppStarter 原子启动）
-  - Planner 禁止重复已 OK 子目标（对应官方 `NO REDOING`）
-  - 子任务 FAIL 不清整队（避免复放空转烧规划步）
-- 文档里「对应官方」= **意图/约束同类**，不是「逐行一致」。论文主表 SR 不承诺复现。
+- **`DMS/agent/`**：独立 PA-Lite 执行栈（JSON 动作），**不是**官方 Droid/CodeAct 端口。
+- 仅保留与官方 **AppStarter** 同意图的开 App 短路（`open_app`，不翻抽屉）；其余行为交给 Planner/Actor prompt + 记忆 `decide`。
+- 文档里「对应官方」= 意图同类，不是逐行一致。论文主表 SR 不承诺复现。

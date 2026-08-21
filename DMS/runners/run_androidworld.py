@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import sys
@@ -124,7 +125,7 @@ def build_memory(backend: str, run_dir: Path):
     from core.regulate import DarwinianMemorySystem, load_config
 
     cfg = load_config(ROOT / "configs" / "default.yaml")
-    # 不同 baseline 分目录（即便复用同一 out_dir 也不会串库）
+    # 各 backend 单独目录
     storage = run_dir / "memory_banks" / backend
     storage.mkdir(parents=True, exist_ok=True)
     cfg.storage_root = str(storage)
@@ -137,13 +138,14 @@ def build_memory(backend: str, run_dir: Path):
             str(storage),
             dms=dms,
             embedding_cfg=cfg.embedding,
+            retrieval_cfg=cfg.retrieval,
         ),
         dms,
     )
 
 
 def max_steps_for_task(task) -> int:
-    # 与 minimal_task_runner 类似：complexity * 10，并设上下限
+    # complexity * 12，夹在 [15, 80]
     complexity = float(getattr(task, "complexity", 1.0) or 1.0)
     return max(15, min(80, int(complexity * 12)))
 
@@ -161,7 +163,7 @@ def run_one_task(
 
     if seed is not None:
         params = task_cls.generate_random_params()
-        # 部分任务内部用随机；这里尽量固定外部可复现点
+        # 固定外部随机源
         try:
             import random
 
@@ -173,10 +175,46 @@ def run_one_task(
         params = task_cls.generate_random_params()
 
     task = task_cls(params)
+    # initialize 前稍等，减轻 a11y 空拍
+    settle = float(os.environ.get("AW_A11Y_SETTLE_SEC", "5"))
+    if settle > 0:
+        time.sleep(settle)
     task.initialize_task(env)
     agent = agent_factory(env)
     if hasattr(agent, "reset"):
-        agent.reset(go_home=True)
+        # reset 失败则重试
+        last_reset_err: Exception | None = None
+        for attempt in range(3):
+            try:
+                agent.reset(go_home=True)
+                last_reset_err = None
+                break
+            except Exception as e:  # noqa: BLE001
+                last_reset_err = e
+                print(f"  [reset] attempt {attempt + 1}/3 failed: {e}")
+                time.sleep(5.0 * (attempt + 1))
+        if last_reset_err is not None:
+            try:
+                task.tear_down(env)
+            except Exception:  # noqa: BLE001
+                pass
+            print(f"❌ FAIL | reset_failed after 3 attempts | {task_cls.__name__}")
+            return {
+                "task": task_cls.__name__,
+                "goal": str(getattr(task, "goal", "")),
+                "difficulty": "unknown",
+                "complexity": float(getattr(task, "complexity", 1.0) or 1.0),
+                "success": False,
+                "is_done": False,
+                "success_score": 0.0,
+                "elapsed_sec": 0.0,
+                "tokens": 0,
+                "peak_memory_size": 0,
+                "metrics": {},
+                "steps": [{"error": f"reset_failed: {last_reset_err!r}"}],
+                "error": f"reset_failed: {last_reset_err!r}",
+                "params": params,
+            }
 
     goal = str(task.goal)
     complexity = float(getattr(task, "complexity", 1.0) or 1.0)
@@ -217,7 +255,7 @@ def run_one_task(
         success_score = 0.0
         step_logs.append({"is_successful_error": repr(e)})
 
-    # 以环境校验为准；done 仅表示 agent 是否主动结束
+    # 以环境校验为准
     env_ok = success_score == 1.0
     if hasattr(agent, "notify_env_success"):
         try:
@@ -294,7 +332,7 @@ def main() -> None:
         help="仅 preferred：每个 App 采样任务数（1 或 2）",
     )
     parser.add_argument("--backend", choices=["a", "b", "dms"], default="dms")
-    parser.add_argument("--trials", type=int, default=5, help="每个任务重复轮数（对齐论文约 5 round）")
+    parser.add_argument("--trials", type=int, default=5, help="每个任务重复轮数")
     parser.add_argument("--console_port", type=int, default=5554)
     parser.add_argument("--grpc_port", type=int, default=8554)
     parser.add_argument("--adb_path", type=str, default=None)
@@ -360,7 +398,7 @@ def main() -> None:
         traceback.print_exc()
         sys.exit(1)
 
-    # 先建 LLM，再用真实模型名命名结果目录（便于跨模型对比）
+    # 先建 LLM，再用模型名命名结果目录
     model_name = args.model or os.environ.get("QWEN_MODEL")
     llm = build_llm(
         model_name,
@@ -398,7 +436,7 @@ def main() -> None:
             env.close()
             raise ValueError(f"任务不在 registry: {name}")
 
-    # 同一 backend 记忆跨 trial 保留，才能看到「进化」
+    # 记忆跨 trial 保留
     memory, dms = build_memory(args.backend, out_dir)
     mem_root = out_dir / "memory_banks" / args.backend
 
@@ -442,9 +480,16 @@ def main() -> None:
             peak_mem = memory.size()
             round_rows: list[dict[str, Any]] = []
 
-            for name in task_names:
+            for ti, name in enumerate(task_names):
+                # 任务间冷却
+                cooldown = float(os.environ.get("AW_TASK_COOLDOWN_SEC", "8"))
+                if ti > 0 and cooldown > 0:
+                    print(f"  [a11y] task cooldown {cooldown:.0f}s ...")
+                    time.sleep(cooldown)
                 task_cls = aw_registry[name]
-                seed = args.seed + trial * 1009 + (hash(name) % 97)
+                # 稳定 seed，避免内置 hash() 跨进程不一致
+                name_salt = int(hashlib.md5(name.encode("utf-8")).hexdigest()[:8], 16) % 97
+                seed = args.seed + trial * 1009 + name_salt
                 try:
                     result = run_one_task(
                         env, task_cls, agent_factory, seed=seed, llm=llm
@@ -473,7 +518,7 @@ def main() -> None:
                 )
                 all_results.append(result)
                 round_rows.append(result)
-                # 每任务落盘，避免中断丢数据
+                # 每任务落盘
                 (out_dir / "task_results.json").write_text(
                     json.dumps(all_results, ensure_ascii=False, indent=2, default=str),
                     encoding="utf-8",

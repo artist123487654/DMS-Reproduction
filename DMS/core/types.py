@@ -1,4 +1,4 @@
-"""DMS 核心数据结构，对应论文3.2.1. MEMORY CONSTRUCTION。"""
+"""DMS 核心数据结构。"""
 
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ _SKIP_ACTION_TYPES = frozenset({"status", "wait", None, ""})
 
 
 def action_step_count(trajectory: list[TrajectoryStep]) -> int:
-    """有效动作步数（排除 status/wait），对齐官方 llm_io 含代码的步计数。"""
+    """有效动作步数，不含 status/wait。"""
     return sum(
         1
         for s in trajectory
@@ -38,12 +38,37 @@ def action_step_count(trajectory: list[TrajectoryStep]) -> int:
     )
 
 
+def _effective_actions(trajectory: list[TrajectoryStep]) -> list[dict[str, Any]]:
+    return [
+        s.action or {}
+        for s in trajectory
+        if (s.action or {}).get("action_type") not in _SKIP_ACTION_TYPES
+    ]
+
+
+def trajectory_has_input_text(trajectory: list[TrajectoryStep]) -> bool:
+    """含 input_text 的填槽轨迹：实例字面量，不可跨任务复用。"""
+    return any(a.get("action_type") == "input_text" for a in _effective_actions(trajectory))
+
+
+def is_structural_trajectory(trajectory: list[TrajectoryStep]) -> bool:
+    """可复用结构轨迹：有有效动作且不含 input_text。"""
+    acts = _effective_actions(trajectory)
+    return bool(acts) and not any(a.get("action_type") == "input_text" for a in acts)
+
+
 def should_persist_trajectory(
     trajectory: list[TrajectoryStep], *, exploring: bool = False
 ) -> bool:
-    """官方：step_count > 1；探索时 step_count >= 1 也可入库。"""
+    """仅结构轨迹入库；填槽（含 input_text）永不入库。默认 n>1；探索允许 n>=1。"""
+    if not is_structural_trajectory(trajectory):
+        return False
     n = action_step_count(trajectory)
-    return n > 1 or (exploring and n >= 1)
+    if n > 1:
+        return True
+    if n >= 1 and exploring:
+        return True
+    return False
 
 
 @dataclass

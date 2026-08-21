@@ -1,39 +1,17 @@
-"""Planner-Actor 与 AndroidWorld 挂接（简洁独立实现，非官方 DMS 端口）。"""
+"""Planner-Actor 与 AndroidWorld 挂接。"""
 
 from __future__ import annotations
 
 from typing import Any
 
-import numpy as np
-
 from agent.actor import Actor
-from agent.app_launch import is_open_app_plan
-from agent.baselines import MemoryBackend, MemoryDecision
+from agent.app_launch import normalize_app_name
+from agent.baselines import MemoryBackend
 from agent.planner import Planner
 from agent.ui_desc import describe_ui_elements, overlay_som
 from agent.verifier import Verifier
-from core.types import Plan, TrajectoryStep
+from core.types import TrajectoryStep
 from models.llm_protocol import MultimodalLLM
-
-_APP_NAME_ALIASES = {
-    "sms messenger": "simple sms messenger",
-    "sms": "simple sms messenger",
-    "messenger": "simple sms messenger",
-    "simple sms": "simple sms messenger",
-    "calendar": "simple calendar pro",
-    "simple calendar": "simple calendar pro",
-    "gallery": "simple gallery pro",
-    "simple gallery": "simple gallery pro",
-    "documents": "files",
-    "files app": "files",
-    "document ui": "files",
-}
-
-
-def _normalize_app_name(name: Any) -> str:
-    n = str(name or "").strip().lower()
-    return _APP_NAME_ALIASES.get(n, n)
-
 
 try:
     from android_world.agents import base_agent
@@ -66,7 +44,7 @@ class PALiteAgentCore:
         self.max_actor_steps = max_actor_steps
         self.use_verifier = use_verifier
 
-        self.plan_queue: list[Plan] = []
+        self.plan_queue: list = []
         self.planner_steps = 0
         self.history: list[str] = []
         self.metrics: dict[str, Any] = {
@@ -86,62 +64,7 @@ class PALiteAgentCore:
         self.memory.begin_episode()
 
     def notify_env_success(self, env_success: bool) -> None:
-        """任务结束通知记忆后端（不再因环境失败撤子任务记忆）。"""
         self.memory.on_episode_end(bool(env_success))
-
-    def _can_accept_task_done(self) -> bool:
-        """拒绝「刚失败就宣布完成」的假结束。"""
-        if not self.history:
-            return False
-        recent = self.history[-4:]
-        if any(h.startswith("FAIL") for h in recent):
-            return False
-        return any(h.startswith("OK") for h in self.history)
-
-    @staticmethod
-    def _goal_tokens(text: str) -> set[str]:
-        stop = {
-            "the", "a", "an", "to", "for", "and", "or", "via", "with", "into",
-            "on", "in", "of", "start", "create", "creating", "new", "button",
-            "click", "tap", "open", "app", "file", "field",
-        }
-        toks = {
-            t.strip(".,'\"()[]").lower()
-            for t in (text or "").replace("_", " ").split()
-        }
-        return {t for t in toks if t and t not in stop and len(t) > 1}
-
-    def _ok_goal_texts(self) -> list[str]:
-        out: list[str] = []
-        for h in self.history:
-            if h.startswith("OK-") and ":" in h:
-                out.append(h.split(":", 1)[1].strip())
-        return out
-
-    def _is_redundant_ok_plan(self, plan: Plan) -> bool:
-        """已 OK 的子目标不要再排进队列（对应官方 Planner「NO REDOING」）。"""
-        g = self._goal_tokens(plan.goal)
-        if not g:
-            return False
-        for prev in self._ok_goal_texts():
-            p = self._goal_tokens(prev)
-            if not p:
-                continue
-            jacc = len(g & p) / max(len(g | p), 1)
-            if jacc >= 0.55:
-                return True
-        return False
-
-    def _filter_plans(self, plans: list[Plan]) -> list[Plan]:
-        kept = [p for p in plans if not self._is_redundant_ok_plan(p)]
-        return kept if kept else plans
-
-    def _decide(self, plan: Plan) -> MemoryDecision:
-        # 开 App：走生成/短路，不复放旧轨迹（避免 Files/Calendar 连打 FAIL）
-        # 官方 AppStarter 亦是原子 start_app，不是复放整段 UI 轨迹
-        if is_open_app_plan(plan) is not None:
-            return MemoryDecision(entry=None, score=0.0, mutate=True)
-        return self.memory.decide(plan)
 
     def run_one_env_step(
         self,
@@ -161,18 +84,17 @@ class PALiteAgentCore:
             if result.task_done and not result.plans:
                 if self._can_accept_task_done():
                     return True, {"reason": "planner_task_done", "raw": result.raw}
-                # 假完成：记下并继续下一轮规划，不结束 episode
-                self.history.append("REJECT-task_done: incomplete or recent FAIL")
-                return False, {"phase": "reject_task_done", "raw": result.raw}
-            filtered = [p for p in result.plans if not self.memory.suppress(p)]
-            filtered = self._filter_plans(filtered or result.plans)
-            self.plan_queue = filtered
+                self.history.append("REJECT-task_done")
+                return False, {"phase": "reject_task_done"}
+            self.plan_queue = [p for p in result.plans if not self.memory.suppress(p)]
+            # 空计划不结束 episode，继续规划
             if not self.plan_queue:
-                return True, {"reason": "empty_plan"}
+                self.history.append("empty_plan")
+                return False, {"phase": "empty_plan"}
             return False, {"phase": "planned", "n_plans": len(self.plan_queue)}
 
         plan = self.plan_queue[0]
-        decision = self._decide(plan)
+        decision = self.memory.decide(plan)
 
         if decision.entry is not None and not decision.mutate:
             traj = decision.entry.trajectory
@@ -184,7 +106,6 @@ class PALiteAgentCore:
                 self.metrics["reused_actions"] += 1
                 if err:
                     exec_errs += 1
-            # 仅复放路径核查（Audit-on-Use）；无截图则暂不处理
             image2, _, screen2 = observe_fn()
             if exec_errs:
                 ok = False
@@ -196,7 +117,6 @@ class PALiteAgentCore:
             self.plan_queue.pop(0)
             self.history.append(f"{'OK' if ok else 'FAIL'}-replay:{plan.goal}")
             self.metrics["memory_size"].append(self.memory.size())
-            # 失败只丢掉当前子目标；不清整队（避免下一步立刻用同一烂记忆空转）
             return False, {"phase": "replay", "success": ok, "goal": plan.goal}
 
         self.metrics["generations"] += 1
@@ -224,27 +144,31 @@ class PALiteAgentCore:
             err = execute_fn(action)
             actor_hist.append(f"{action} -> {err or 'ok'}")
             if err:
-                # 把失败反馈给下一步；不中断整条子任务
                 continue
             if action.get("action_type") == "status":
                 break
 
-        # 生成路径：信任 Actor 的 complete
         ok = bool(sub_done) and not sub_fail
-
         self.memory.commit(plan, new_traj, success=ok, decision=decision)
         self.plan_queue.pop(0)
         self.history.append(f"{'OK' if ok else 'FAIL'}-gen:{plan.goal}")
         self.metrics["memory_size"].append(self.memory.size())
-        # 失败不清整队：队列里后续子目标仍可试；需改路线时由下一轮 Planner 看 FAIL 史
         return False, {"phase": "generate", "success": ok, "goal": plan.goal}
 
-    def _verify(self, plan: Plan, screen: str, image, traj) -> bool:
+    def _verify(self, plan, screen: str, image, traj) -> bool:
         if not self.use_verifier:
             return True
         parts = [f"{i+1}:{s.action}" for i, s in enumerate(traj[:24])]
         summary = f"{len(traj)} steps | " + " | ".join(parts)
         return self.verifier.verify(plan, screen, image, summary).success
+
+    def _can_accept_task_done(self) -> bool:
+        """无 OK 或近期有 FAIL 时不接受 task_done。"""
+        if not any(h.startswith("OK") for h in self.history):
+            return False
+        if any(h.startswith("FAIL") for h in self.history[-5:]):
+            return False
+        return True
 
 
 if _HAS_AW:
@@ -276,16 +200,14 @@ if _HAS_AW:
                 return image, ui, desc
 
             def execute(action_dict: dict[str, Any]) -> str | None:
-                """返回 None 表示成功，否则返回错误说明（回传给 Actor）。"""
                 if action_dict.get("action_type") == "status":
                     return None
                 action_dict = dict(action_dict)
                 atype = action_dict.get("action_type")
 
                 if atype == "open_app":
-                    action_dict["app_name"] = _normalize_app_name(action_dict.get("app_name"))
+                    action_dict["app_name"] = normalize_app_name(action_dict.get("app_name"))
 
-                # 坐标点击：不需要 index
                 has_xy = action_dict.get("x") is not None and action_dict.get("y") is not None
                 needs_index = atype in {"click", "long_press", "input_text"} and not has_xy
                 if needs_index:
@@ -297,7 +219,6 @@ if _HAS_AW:
                     if n <= 0 or idx_i < 0 or idx_i >= n:
                         return f"index {idx_i} out of range 0..{max(n - 1, 0)}"
                     action_dict["index"] = idx_i
-                    # 有 bbox 时改写为中心点点击，减少 index 路径歧义
                     if atype in {"click", "long_press"}:
                         bb = getattr(latest_ui[idx_i], "bbox_pixels", None)
                         if bb is not None:

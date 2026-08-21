@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Full Split：只跑 Baseline A / B（不含 DMS；DMS 用 run_full_split.sh）。
+# Full Split：只跑 A / B；DMS 用 run_full_split.sh
 #   DETACH=1 bash scripts/run_full_split_baselines.sh --model qwen/qwen3-vl-8b-instruct
 set -euo pipefail
 

@@ -8,7 +8,13 @@ from typing import Protocol
 from core.bank import MemoryBank
 from core.regulate import DarwinianMemorySystem
 from core.retrieval import DualFactorRetriever, Embedder, EmbeddingConfig, RetrievalConfig, build_embedder
-from core.types import MemoryEntry, Plan, TrajectoryStep, should_persist_trajectory
+from core.types import (
+    MemoryEntry,
+    Plan,
+    TrajectoryStep,
+    is_structural_trajectory,
+    should_persist_trajectory,
+)
 
 
 @dataclass
@@ -67,11 +73,12 @@ class ZeroShotMemory:
 
 @dataclass
 class StaticAppendMemory:
-    """Baseline B：只追加、不算 S、不修剪。"""
+    """Baseline B：静态追加记忆，只增不剪。"""
 
     bank: MemoryBank
     retriever: DualFactorRetriever | None = None
     embedder: Embedder | None = None
+    retrieval_cfg: RetrievalConfig | None = None
     name: str = "baseline_b_static"
     logical_step: int = 0
     _log: list[str] = field(default_factory=list)
@@ -80,19 +87,19 @@ class StaticAppendMemory:
     def __post_init__(self) -> None:
         if self.retriever is None:
             emb = self.embedder or build_embedder()
-            self.retriever = DualFactorRetriever(
-                self.bank, emb, RetrievalConfig(min_score=0.25)
-            )
+            cfg = self.retrieval_cfg or RetrievalConfig()
+            self.retriever = DualFactorRetriever(self.bank, emb, cfg)
 
     def on_step_begin(self) -> None:
         self.logical_step += 1
 
     def decide(self, plan: Plan) -> MemoryDecision:
         hits = self.retriever.retrieve(plan)
-        if not hits:
-            return MemoryDecision(None, 0.0, True)
-        entry, score = hits[0]
-        return MemoryDecision(entry, score, False)
+        for entry, score in hits:
+            # 旧库中的填槽轨迹禁止复放
+            if is_structural_trajectory(entry.trajectory):
+                return MemoryDecision(entry, score, False)
+        return MemoryDecision(None, 0.0, True)
 
     def suppress(self, plan: Plan) -> bool:
         return False
@@ -100,7 +107,6 @@ class StaticAppendMemory:
     def commit(self, plan, trajectory, *, success, decision) -> None:
         if not success or not should_persist_trajectory(trajectory):
             return
-        # 复放成功不重复入库
         if decision.entry is not None:
             return
         emb_pre, emb_goal = self.retriever.embed_plan(plan)
@@ -116,7 +122,6 @@ class StaticAppendMemory:
         self._log.append(plan.goal)
 
     def on_episode_end(self, env_success: bool) -> None:
-        # 子目标成功则保留；不因整任务环境分失败而撤条
         self._episode_added.clear()
 
     def begin_episode(self) -> None:
@@ -169,9 +174,6 @@ class DarwinianBackend:
                 self._episode_ids.append(decision.entry.id)
 
     def on_episode_end(self, env_success: bool) -> None:
-        """整任务结束：不因环境 score=0 删除本局已成功子任务记忆。
-        plan 级失败已在 commit_failure / 复放核查里处理。
-        """
         if not env_success:
             self.dms.risk_state.update_global(False, self.dms.cfg.risk)
         self._episode_ids.clear()
@@ -192,6 +194,7 @@ def build_backend(
     *,
     embedder: Embedder | None = None,
     embedding_cfg: EmbeddingConfig | None = None,
+    retrieval_cfg: RetrievalConfig | None = None,
 ) -> MemoryBackend:
     """构建记忆后端。"""
     kind = kind.lower()
@@ -200,7 +203,9 @@ def build_backend(
     if kind in {"b", "static", "baseline_b"}:
         bank = MemoryBank(storage_root)
         emb = embedder or build_embedder(embedding_cfg)
-        return StaticAppendMemory(bank=bank, embedder=emb)
+        return StaticAppendMemory(
+            bank=bank, embedder=emb, retrieval_cfg=retrieval_cfg
+        )
     if kind in {"dms", "c", "darwinian"}:
         if dms is None:
             raise ValueError("DMS backend 需要传入 DarwinianMemorySystem")

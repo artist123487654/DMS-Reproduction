@@ -1,4 +1,4 @@
-"""基于 Elbow 的容量调节与长尾修剪，对应 Adaptive Memory Regulation。"""
+"""Elbow 容量调节与长尾修剪。"""
 
 from __future__ import annotations
 

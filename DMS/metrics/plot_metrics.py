@@ -1,4 +1,4 @@
-"""从 round_metrics.csv / json 画论文风格曲线。"""
+"""评测指标曲线。"""
 
 from __future__ import annotations
 

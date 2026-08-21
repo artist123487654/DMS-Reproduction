@@ -6,7 +6,7 @@ import random
 from typing import Any
 
 
-# Minimum：3–5 个代表性任务（考核底线）
+# Minimum 套件
 MIN_TASKS = [
     "MarkorCreateNote",
     "ContactsAddContact",
@@ -15,7 +15,7 @@ MIN_TASKS = [
     "MarkorCreateNoteAndSms",
 ]
 
-# Test：单任务冒烟（验证全流程）
+# test单任务
 TEST_TASKS = [
     "ContactsAddContact",
 ]

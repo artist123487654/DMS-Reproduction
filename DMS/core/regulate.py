@@ -1,4 +1,4 @@
-"""DMS 闭环：检索 →（mutation）执行结果回流 → 更新 S → 修剪。"""
+"""DMS 闭环：检索、回流、更新 S、修剪。"""
 
 from __future__ import annotations
 
@@ -20,7 +20,13 @@ from .retrieval import (
 )
 from .risk import RiskConfig, RiskState, should_suppress_plan
 from .survival import SurvivalConfig, survival_value
-from .types import MemoryEntry, Plan, TrajectoryStep, should_persist_trajectory
+from .types import (
+    MemoryEntry,
+    Plan,
+    TrajectoryStep,
+    is_structural_trajectory,
+    should_persist_trajectory,
+)
 
 
 @dataclass
@@ -96,9 +102,9 @@ class DarwinianMemorySystem:
     def tick(self) -> None:
         self.logical_step += 1
 
-    # ----- 风险门控（Planner 出 plan 后可调用）-----
+    # 风险门控
     def plan_suppressed(self, plan: Plan) -> bool:
-        """用历史同意图的失败统计做抑制；无历史则放行。"""
+        """历史失败过多则抑制该 plan。"""
         hits = self.retriever.retrieve(plan)
         if not hits:
             return False
@@ -110,16 +116,18 @@ class DarwinianMemorySystem:
             self.stats["suppressed"] += 1
         return bad
 
-    # ----- 检索 / mutation 决策 -----
+    # 检索 / mutation
     def query(self, plan: Plan) -> tuple[MemoryEntry | None, float, bool]:
-        """
-        返回 (命中记忆, score, 是否 mutation)。
-        mutation=True 时调用方应让 Actor 重跑而非 Replay。
-        """
+        """返回 (命中记忆, score, 是否 mutation)。mutation 时由 Actor 重跑。"""
         hits = self.retriever.retrieve(plan)
-        if not hits:
+        # 跳过含 input_text 的填槽记忆，只复用结构轨迹
+        entry, score = None, 0.0
+        for cand, sc in hits:
+            if is_structural_trajectory(cand.trajectory):
+                entry, score = cand, sc
+                break
+        if entry is None:
             return None, 0.0, True  # 未命中 → 必须生成
-        entry, score = hits[0]
         mutate = should_mutate(self.cfg.mutation)
         if mutate:
             self.stats["mutated"] += 1
@@ -128,7 +136,7 @@ class DarwinianMemorySystem:
         self.bank.touch_reuse(entry.id, self.logical_step)
         return entry, score, False
 
-    # ----- 执行结果回流 -----
+    # 执行结果回流
     def commit_success(
         self,
         plan: Plan,
@@ -148,7 +156,6 @@ class DarwinianMemorySystem:
                 success=True,
                 logical_step=self.logical_step,
             )
-            # 本次成功执行计入 plan 级声誉（Si），与是否进化替换无关
             from_memory.success_count += 1
             from_memory.meta.last_used_step = self.logical_step
             emb_pre, emb_goal = self.retriever.embed_plan(plan)
@@ -158,14 +165,14 @@ class DarwinianMemorySystem:
             self.maybe_prune()
             return from_memory
 
-        # 复放成功：只记成功/复用，禁止再 add 一条重复轨迹
+        # 复放成功只更新计数，不重复入库
         if from_memory is not None:
             from_memory.success_count += 1
             from_memory.meta.last_used_step = self.logical_step
             self.bank.update_entry(from_memory)
             return from_memory
 
-        # 默认 |τ|>1；探索/mutation 时允许 |τ|>=1
+        # 默认 |τ|>1；探索时允许 |τ|>=1
         if not should_persist_trajectory(trajectory, exploring=mutated):
             return None
 
@@ -189,7 +196,7 @@ class DarwinianMemorySystem:
         *,
         from_memory: MemoryEntry | None = None,
     ) -> None:
-        """失败：抬高 K_i / F_i，推动 Survival 下降。"""
+        """失败时抬高失败计数，压低 Survival。"""
         self.risk_state.update_global(False, self.cfg.risk)
         if from_memory is None:
             return
@@ -199,7 +206,7 @@ class DarwinianMemorySystem:
         self.bank.update_entry(from_memory)
         self.maybe_prune()
 
-    # ----- Survival + Prune -----
+    # Survival / Prune
     def score_entry(self, entry: MemoryEntry) -> float:
         delta_t = max(0, self.logical_step - entry.meta.last_used_step)
         is_new = entry.meta.reuse_count == 0 and delta_t < self.cfg.survival.t_base

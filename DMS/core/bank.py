@@ -1,4 +1,4 @@
-"""MemoryBank：SQLite 索引 + 轨迹文件存储，对应论文3.2.1. MEMORY CONSTRUCTION"""
+"""MemoryBank：SQLite 索引 + 轨迹文件。"""
 
 from __future__ import annotations
 
@@ -79,7 +79,7 @@ class MemoryBank:
         emb_goal: np.ndarray | None = None,
         mem_id: str | None = None,
     ) -> MemoryEntry:
-        # 底层兜底：至少 1 个有效动作；>1 规则由 commit 层按官方过滤
+        # 底层兜底：至少 1 个有效动作；>1 规则由 commit 层过滤
         if action_step_count(trajectory) < 1:
             raise ValueError("拒绝无有效动作的碎片记忆")
 

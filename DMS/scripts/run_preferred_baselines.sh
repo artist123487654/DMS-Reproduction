@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Preferred：只跑 Baseline A / B（不含 DMS；DMS 用 run_preferred.sh）。
+# Preferred：只跑 A / B；DMS 用 run_preferred.sh
 #   DETACH=1 bash scripts/run_preferred_baselines.sh --model qwen/qwen3-vl-8b-instruct
 set -euo pipefail
 

@@ -1,4 +1,4 @@
-"""这个脚本计算生存价值 S(m) = Utility × AdaptiveDecay × Reliability，对应论文3.2.3. SELF-REGULATION STRATEGY。"""
+"""生存价值 S(m) = Utility × AdaptiveDecay × Reliability。"""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ class SurvivalConfig:
     gamma: float = 1.0  # 可靠性因子
 
 def marginal_utility(n_i: int, v_new: float, is_new: bool) -> float:
-    """边际效用。U(n) = ln(1+n) + v_new（v_new是对新记忆的冷启动保护）"""
+    """边际效用。U(n) = ln(1+n) + v_new"""
     bonus = v_new if is_new else 0.0
     return math.log1p(n_i) + bonus
 

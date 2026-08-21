@@ -1,4 +1,4 @@
-"""按轮次汇总论文核心指标，并落盘 JSON / CSV。"""
+"""按轮次汇总指标并落盘。"""
 
 from __future__ import annotations
 
@@ -163,7 +163,7 @@ class RoundMetricsRecorder:
         peak = max(int(peak_memory_size), final_mem)
 
         snap = RoundSnapshot(
-            round=round_idx + 1,  # 对外 1-based，对齐论文 R1..R5
+            round=round_idx + 1,  # 1-based
             total_tasks=n,
             success_count=success_count,
             sr=sr,
@@ -233,7 +233,7 @@ class RoundMetricsRecorder:
                 row = asdict(r)
                 writer.writerow({k: row.get(k) for k in fieldnames})
 
-        # 兼容旧 summary.json，内容对齐核心曲线
+        # 兼容旧 summary.json
         summary = {
             "backend": self.backend,
             "model": self.model,
