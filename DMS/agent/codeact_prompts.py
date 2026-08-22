@@ -20,12 +20,12 @@ Available tools (call these directly, no imports):
 
 Rules:
 - Output brief reasoning, then ONE ```python``` code block.
-- Prefer tap_by_index / input_text with valid indices from the UI list.
-- To open known apps, call open_app with the app implied by Overall/sub-task goal
-  (do not hunt the launcher; do not substitute a related but wrong app).
+- Prefer tap_by_index / input_text with valid indices from the CURRENT UI list.
+- If the sub-task is to open an app: call open_app(...) once, then complete(). Do not tap the launcher.
 - When typing, use EXACT strings from the Overall task / sub-task goal.
-- Call complete() only when THIS sub-task goal is visibly achieved on screen.
+- Call complete() as soon as THIS sub-task goal is achieved (do not keep exploring).
 - Do not invent UI indices outside the listed range.
+- One turn = one meaningful action when possible; avoid redundant waits/taps.
 """
 
 
@@ -43,7 +43,8 @@ def codeact_user_prompt(
         f"Sub-task goal: {plan_goal}\n"
         f"Recent tool results:\n{hist}\n"
         f"Screen UI:\n{screen_desc}\n"
-        "Write the next Python tool calls (one code block)."
+        "Write the next Python tool calls (one code block). "
+        "If the goal is opening an app, only open_app then complete()."
     )
 
 
@@ -52,14 +53,16 @@ Decompose the remaining user task into 1-3 short sub-tasks.
 Each sub-task: precondition (UI state) + goal (what to achieve). English only.
 Embed exact literals from the user task (names, phones, file names, texts, times).
 
-When launching an app via open_app:
-- Infer the target app ONLY from the user task intent.
-- Do not open a different but related app (wrong product for the same domain).
+When launching an app:
 - Prefer goals of the form "Open <AppName> via open_app". Never plan the app drawer.
+- Infer the target app ONLY from the user task. Do not open a related but wrong app.
+- Do NOT re-plan an Open-via-open_app step if Progress already shows OK for that open.
+- After an app is open, plan the NEXT concrete content step (create/edit/delete/save), not another Open.
 
 Output JSON only:
 {"plans":[{"precondition":"...","goal":"..."}], "task_done": false}
-Set task_done=true ONLY if the FULL user goal is already completed on screen.
+Set task_done=true when the FULL user goal appears already completed on screen,
+OR when Progress already shows enough OK steps that the user task is finished.
 Never return empty plans when task_done is false.
 """
 
@@ -70,12 +73,13 @@ def planner_user_prompt(task: str, screen_desc: str, progress: str) -> str:
         f"Progress: {progress or 'just started'}\n"
         f"Screen:\n{screen_desc}\n"
         "Next 1-3 sub-tasks as JSON. Embed exact literals. "
-        "Open the app implied by the user task (not a related substitute). "
-        "Do not redo OK sub-goals from Progress."
+        "Open app via open_app phrasing. "
+        "Do not redo OK sub-goals from Progress. Advance past Open once OK."
     )
 
 
 VERIFIER_SYSTEM = """You verify whether a sub-task goal was achieved after memory replay.
+For "Open <App> via open_app" goals: success if that app's UI is visible (do not require perfect match).
 Fail only when the screen clearly contradicts the goal.
 Output JSON only: {"success": true/false, "reason":"..."}
 """

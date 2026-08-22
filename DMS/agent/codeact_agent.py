@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from agent.app_names import normalize_app_name
 from agent.baselines import MemoryBackend
 from agent.codeact_exec import extract_python_block, run_codeact
 from agent import codeact_prompts as prompts
@@ -88,6 +89,7 @@ class CodeActAgentCore:
                     return True, {"reason": "planner_task_done", "raw": result.raw}
                 self.history.append("REJECT-task_done")
                 return False, {"phase": "reject_task_done"}
+            # 仅用 DMS 风险抑制（论文机制），不做 episode 级 goal 拉黑
             self.plan_queue = [p for p in result.plans if not self.memory.suppress(p)]
             if not self.plan_queue:
                 self.history.append("empty_plan")
@@ -98,7 +100,7 @@ class CodeActAgentCore:
         plan = self.plan_queue[0]
         decision = self.memory.decide(plan)
 
-        # ---------- 记忆复放（整段轨迹）----------
+        # ---------- 记忆复放（整段轨迹）；失败走 DMS commit/校验计数，不手写拉黑 ----------
         if decision.entry is not None and not decision.mutate:
             traj = decision.entry.trajectory
             self.metrics["replays"] += 1
@@ -201,7 +203,6 @@ if _HAS_AW:
             **kwargs,
         ):
             super().__init__(env, name=name)
-            # 兼容旧配置名 max_actor_steps
             if "max_actor_steps" in kwargs and "max_codeact_turns" not in kwargs:
                 kwargs["max_codeact_turns"] = kwargs.pop("max_actor_steps")
             self.core = CodeActAgentCore(llm, memory, **kwargs)
@@ -233,8 +234,6 @@ if _HAS_AW:
                 action_dict = dict(action_dict)
                 atype = action_dict.get("action_type")
                 if atype == "open_app":
-                    from agent.app_names import normalize_app_name
-
                     action_dict["app_name"] = normalize_app_name(action_dict.get("app_name"))
 
                 has_xy = action_dict.get("x") is not None and action_dict.get("y") is not None

@@ -248,6 +248,21 @@ def run_one_task(
         if response.done:
             is_done = True
             break
+        # 环境已成功则早停，避免满 max_steps 空转烧 token
+        if step_i >= 1:
+            try:
+                if float(task.is_successful(env)) == 1.0:
+                    is_done = True
+                    step_logs.append(
+                        {
+                            "step": step_i,
+                            "done": True,
+                            "info": {"phase": "env_early_stop"},
+                        }
+                    )
+                    break
+            except Exception:  # noqa: BLE001
+                pass
 
     try:
         success_score = float(task.is_successful(env))

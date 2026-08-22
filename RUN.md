@@ -17,7 +17,7 @@ code/
 source /home/moxy/venvs/android_world/bin/activate
 cd DMS
 
-export OPENROUTER_API_KEY='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'
+export OPENROUTER_API_KEY='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'
 
 bash scripts/start_emulator.sh
 
@@ -41,7 +41,8 @@ adb shell ls /data/data/android_world/snapshots/ | head
 ## 3. 跑实验
 
 均在 `code/DMS` 下执行；默认模型：`qwen/qwen3-vl-8b-instruct`。  
-执行器为独立 **CodeAct**（Planner → 写 Python 调工具 / 命中则复放轨迹），挂自研 DMS；**不**从官方 DMS 仓库 import。
+执行器为独立 **CodeAct**（Planner → 写 Python 调工具 / 命中则复放轨迹），挂自研 DMS；**不**从官方 DMS 仓库 import。  
+通用提示：开 App 用 `open_app`、子任务尽快 `complete`；runner 在环境 `is_successful==1` 时早停。
 
 正式评测前确认快照：`adb shell ls /data/data/android_world/snapshots/`；旧 `memory_banks` 建议清空后空库重跑。
 
@@ -52,6 +53,7 @@ adb shell ls /data/data/android_world/snapshots/ | head
 | Minimum 基线 a/b | `bash scripts/run_min_baselines.sh --model qwen/qwen3-vl-8b-instruct` |
 | Preferred（默认 dms） | `bash scripts/run_preferred.sh --model qwen/qwen3-vl-8b-instruct` |
 | Preferred 基线 a/b | `bash scripts/run_preferred_baselines.sh --model qwen/qwen3-vl-8b-instruct` |
+| Preferred 全套 dms→b→a（顺序，推荐） | `bash scripts/run_preferred_all.sh --model qwen/qwen3-vl-8b-instruct` |
 | Full（很慢，默认 dms） | `bash scripts/run_full_split.sh --model qwen/qwen3-vl-8b-instruct` |
 
 可选：`BACKEND=a`、`TRIALS=1`（快速冒烟）、`TASK=MarkorCreateNote`（仅 test）。
@@ -69,6 +71,8 @@ DETACH=1 bash scripts/run_full_split.sh --model qwen/qwen3-vl-8b-instruct
 
 DETACH=1 bash scripts/run_preferred_baselines.sh --model qwen/qwen3-vl-8b-instruct
 DETACH=1 bash scripts/run_preferred.sh --model qwen/qwen3-vl-8b-instruct
+# Preferred 一次跑完 A/B/DMS（顺序，勿与上面并行）
+DETACH=1 bash scripts/run_preferred_all.sh --model qwen/qwen3-vl-8b-instruct
 ```
 
 日志与 PID 在 `DMS/logs/`。查看 / 停止：
