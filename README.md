@@ -152,8 +152,3 @@ export OPENROUTER_API_KEY='sk-or-v1-6e5db3ee4a74dd930ae76242c28a0dcead6ce3832fb9
 ## 声明
 
 本仓库为独立复现，用于研究 / 课程考核，**非论文作者官方发布**。
-
-## 实现边界
-
-- **`DMS/core/`**：Survival / 检索 / 修剪 / mutation 等按论文机制实现。
-- **`DMS/agent/`**：独立 CodeAct 执行栈，挂自研 DMS 记忆；非官方 Droid/CodeAct 端口。
