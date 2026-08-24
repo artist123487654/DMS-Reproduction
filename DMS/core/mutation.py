@@ -25,7 +25,7 @@ def is_better_trajectory(
     *,
     new_success: bool,
 ) -> bool:
-    """成功且步数更短 → 触发进化替换。"""
+    """成功且步数更短时触发进化替换。"""
     if not new_success or not new_traj:
         return False
     if not old_traj:
@@ -41,9 +41,9 @@ def apply_inplace_evolution(
     logical_step: int,
 ) -> bool:
     """
-    原地覆盖 τ（成功且更短）。
-    - 保留 reuse_count / success_count / fail_count：索引仍是同一 plan 谱系
-    - 仅清零 fail_verify_count(K)：校验债属于旧轨迹表型
+    原地覆盖轨迹，成功且更短时替换。
+    保留 reuse_count / success_count / fail_count，索引仍是同一 plan 谱系。
+    仅清零 fail_verify_count，校验债属于旧轨迹。
     """
     if not is_better_trajectory(new_traj, entry.trajectory, new_success=success):
         return False

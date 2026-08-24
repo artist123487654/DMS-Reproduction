@@ -1,4 +1,4 @@
-"""DMS × AndroidWorld 评测入口（由 scripts/*.sh 调用）。
+"""DMS × AndroidWorld 评测入口，由 scripts 下 shell 脚本调用。
 
 示例：
   bash scripts/run_min.sh
@@ -145,9 +145,9 @@ def build_memory(backend: str, run_dir: Path):
 
 
 def max_steps_for_task(task) -> int:
-    # complexity * 12，夹在 [15, 80]
+    # complexity * 12，夹在 [15, 60]
     complexity = float(getattr(task, "complexity", 1.0) or 1.0)
-    return max(15, min(80, int(complexity * 12)))
+    return max(15, min(50, int(complexity * 12)))
 
 
 def run_one_task(
@@ -331,7 +331,7 @@ def main() -> None:
         "--tasks_file",
         type=str,
         default=None,
-        help="任务列表文件（每行一个，或逗号分隔）",
+        help="任务列表文件，每行一个或逗号分隔",
     )
     parser.add_argument(
         "--suite",
@@ -344,7 +344,7 @@ def main() -> None:
         "--per_app",
         type=int,
         default=2,
-        help="仅 preferred：每个 App 采样任务数（1 或 2）",
+        help="仅 preferred：每个 App 采样任务数，1 或 2",
     )
     parser.add_argument("--backend", choices=["a", "b", "dms"], default="dms")
     parser.add_argument("--trials", type=int, default=5, help="每个任务重复轮数")
@@ -400,7 +400,7 @@ def main() -> None:
             for app, ts in info["apps"].items():
                 print(f"  [{app}] {len(ts)}: {', '.join(ts)}")
         except Exception as e:  # noqa: BLE001
-            print("无法按 App 汇总（需 android_world）：", e)
+            print("无法按 App 汇总，需 android_world：", e)
         return
 
     # 延迟导入真实依赖
@@ -506,7 +506,7 @@ def main() -> None:
                     print(f"  [a11y] task cooldown {cooldown:.0f}s ...")
                     time.sleep(cooldown)
                 task_cls = aw_registry[name]
-                # 稳定 seed，避免内置 hash() 跨进程不一致
+                # 稳定 seed，避免 hash 跨进程不一致
                 name_salt = int(hashlib.md5(name.encode("utf-8")).hexdigest()[:8], 16) % 97
                 seed = args.seed + trial * 1009 + name_salt
                 try:

@@ -12,132 +12,128 @@ DMS 将 Agent 记忆视为遵循「适者生存」的动态生态：分层意图
 | `b` | 静态追加、不修剪（考核 Baseline B；与 DMS 共用双因子/`min_score`） |
 | `dms` | 达尔文记忆：Survival + 动态修剪 + ε-mutation 等 |
 
-默认推荐轻量开源多模态模型 **Qwen3-VL-8B-Instruct**（约 8B，符合考核 7B～8B 开源 VLM 要求；原推荐的 Qwen2.5-VL-7B 多数平台已下架）。论文使用更大骨干（如 72B），本复现侧重机制验证，报告中需做 Gap 分析。
+默认推荐轻量开源多模态模型 **Qwen3-VL-8B-Instruct**（约 8B，符合考核 7B～8B 开源 VLM 要求）。论文使用更大骨干（如 72B），本复现侧重机制验证，报告中需做 Gap 分析。
 
 ## 仓库结构
 
 ```text
 code/
-├── README.md               # 项目说明
-├── RUN.md                  # 启动模拟器与跑实验（详细步骤）
 ├── android_world/          # AndroidWorld 评测环境
 └── DMS/                    # 复现代码
-    ├── core/               # 记忆库、Survival、修剪、检索、闭环调节
+    ├── core/               # 记忆库、Survival、修剪、检索
     ├── agent/              # Planner / Actor / Verifier / 基线
-    ├── models/             # VLM HTTP 客户端
-    ├── metrics/            # 轮次级 SR / MRR / Token / 记忆指标
-    ├── runners/            # 评测入口（run_androidworld.py）
-    ├── scripts/            # 一键启动脚本
-    │   ├── run_test.sh     # Test：单任务冒烟
-    │   ├── run_min.sh      # Minimum：5 任务
-    │   ├── run_preferred.sh
-    │   └── run_full_split.sh
-    └── configs/default.yaml
+    ├── runners/            # run_androidworld.py
+    └── scripts/            # 一键脚本
 ```
 
-请保持 `DMS/` 与 `android_world/` 同级。脚本按相对路径定位，不依赖固定用户名或绝对路径。  
-**如何启动模拟器并跑各档实验：见 [RUN.md](./RUN.md)。**
+请保持 `DMS/` 与 `android_world/` **同级**。
 
 ## 评测套件
 
-| Suite | 脚本 | 规模 | 用途 |
-|-------|------|------|------|
-| `test` | `scripts/run_test.sh` | 1 任务 × 1 轮 | 低成本验证全流程 |
-| `min` | `scripts/run_min.sh` | 5 任务 × 5 轮 | 考核 Minimum |
-| `preferred` | `scripts/run_preferred.sh` | 每 App 采 1～2 任务 × 5 轮 | 跨应用 Preferred |
-| `full` | `scripts/run_full_split.sh` | AndroidWorld 全集 × 5 轮 | 完整 Split（耗时长） |
+| Suite | 脚本 | 规模 |
+|-------|------|------|
+| `test` | `run_test.sh` | 1 任务 × 5 轮 |
+| `min` | `run_min.sh` | 5 任务 × 5 轮 |
+| `preferred` | `run_preferred.sh` | 每 App 1～2 任务 × 5 轮 |
+| `full` | `run_full_split.sh` | 全集 × 5 轮 |
 
-对应 `*_baselines.sh` 会依次跑 `a` → `b`（不含 DMS；DMS 用同档的 `run_min.sh` / `run_preferred.sh` 等）。
+`*_baselines.sh` 顺序跑 `a → b`；`run_preferred_all.sh` 顺序跑 `dms → b → a`。
 
-## 环境要求
+---
 
-- 推荐 Linux + KVM
-- Android 模拟器（API 33 / `AndroidWorldAvd`，gRPC 常见端口 `8554`）
-- 已安装 `android_world` 与 `DMS/requirements.txt` 的 Python 虚拟环境
-- VLM API Key：`OPENROUTER_API_KEY` 或 `DASHSCOPE_API_KEY`（或 `OPENAI_API_KEY`）
-- 检索嵌入：默认 `BAAI/bge-small-en-v1.5`，可用 `EMBEDDING_MODEL_PATH` 指向本地目录
+## 运行方法
 
-运行前请激活虚拟环境、启动模拟器并导出 API Key。`scripts/_common.sh` 会做基本检查，但不会自动安装依赖或启动模拟器。
+整体流程：**配环境 → 启模拟器 →（首次）装 App 写快照 → 跑 sh 脚本**。实验在 Linux 上的 Android 模拟器里跑真实 App 任务，Agent 看图决策，DMS 负责记忆检索与演化。
 
-## 快速开始
+### 1. 前置条件
+
+跑脚本前，机器上需已具备：
+
+- **Linux + KVM**：Android 模拟器依赖硬件虚拟化，需有 `/dev/kvm`（云服务器请选带 KVM 的机型）。
+- **Android SDK + AVD**：用 Android Studio 装好 SDK，并创建名为 **AndroidWorldAvd** 的虚拟手机（Pixel 6、API 33），详见 [AndroidWorld 官方说明](https://github.com/google-research/android_world#installation)。
+- **Python 3.11+**：跑 DMS 与 AndroidWorld 代码。
+- **VLM API Key**：调用 Qwen3-VL 做多模态 Planner/Actor；考核共用 OpenRouter Key 如下（几天会过期，可直接复制）：
 
 ```bash
-source <venv>/bin/activate
-adb devices   # 应看到就绪设备
+export ANDROID_HOME="$HOME/Android/Sdk"
+export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH"
+export OPENROUTER_API_KEY='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'
+```
 
+### 2. 安装依赖
+
+创建 Python 虚拟环境，把 **AndroidWorld**（评测环境、任务、adb 通信）和 **DMS**（记忆系统、Agent）装进同一个 venv：
+
+```bash
+python3.11 -m venv ~/venvs/android_world
+source ~/venvs/android_world/bin/activate
+
+cd code/android_world
+pip install -r requirements.txt
+python setup.py install
+
+cd ../DMS
+pip install -r requirements.txt
+```
+
+### 3. 启动模拟器
+
+AndroidWorld 在 **Live 模拟器** 里评测。`start_emulator.sh` 会后台拉起 `AndroidWorldAvd` 并通过 adb 连上：
+
+```bash
+source ~/venvs/android_world/bin/activate
 cd code/DMS
-export OPENROUTER_API_KEY='sk-or-...'
-# 或: export DASHSCOPE_API_KEY='sk-...' && export VLM_PROVIDER=dashscope
+bash scripts/start_emulator.sh
+adb devices   # 应看到 emulator-5554 device
+```
 
-# 1) Test：1 个短任务 × 1 轮
+### 4. 首次初始化（只需一次）
+
+AndroidWorld 任务依赖 Markor、Contacts 等第三方 App，首次需在模拟器里**自动安装并保存快照**（否则任务无法 reset）。加 `--perform_emulator_setup`，可能跑较久：
+
+```bash
+export OPENROUTER_API_KEY='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'
+
 bash scripts/run_test.sh \
+  --perform_emulator_setup \
   --model qwen/qwen3-vl-8b-instruct
 
-# 2) Minimum / Preferred / Full
-bash scripts/run_min.sh --model qwen/qwen3-vl-8b-instruct
-bash scripts/run_min_baselines.sh --model qwen/qwen3-vl-8b-instruct
-bash scripts/run_preferred.sh --model qwen/qwen3-vl-8b-instruct
-bash scripts/run_full_split.sh --model qwen/qwen3-vl-8b-instruct
-
-# 仅列出套件任务（不跑评测）
-python runners/run_androidworld.py --suite test --list-tasks
-python runners/run_androidworld.py --suite preferred --list-tasks
+adb shell ls /data/data/android_world/snapshots/ | head   # 应看到 markor 等目录
 ```
 
-常用环境变量：`BACKEND`、`TRIALS`、`PER_APP`、`SEED`、`TASK`（仅 `run_test.sh` 可覆盖任务名）。
+之后正式实验**不要**再加 `--perform_emulator_setup`；模拟器数据被 wipe 后才需重做。
+
+### 5. 跑实验
+
+在 `code/DMS` 下执行各档脚本；脚本调用 `run_androidworld.py` 连模拟器跑任务，结果写入 `results/`。每次跑前激活 venv 并 export Key：
 
 ```bash
-BACKEND=a TASK=MarkorCreateNote bash scripts/run_test.sh --model qwen/qwen3-vl-8b-instruct
+source ~/venvs/android_world/bin/activate
+cd code/DMS
+export OPENROUTER_API_KEY='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'
 ```
 
-DashScope（例如 Azure 东亚，建议香港 endpoint）：
+| 档位 | 命令 | 说明 |
+|------|------|------|
+| Test | `bash scripts/run_test.sh --model qwen/qwen3-vl-8b-instruct` | 1 任务 × 5 轮，先跑通 |
+| Minimum | `bash scripts/run_min.sh --model qwen/qwen3-vl-8b-instruct` | 5 任务 × 5 轮，backend=dms |
+| Minimum 基线 | `bash scripts/run_min_baselines.sh --model qwen/qwen3-vl-8b-instruct` | 顺序跑 a → b |
+| Preferred | `bash scripts/run_preferred.sh --model qwen/qwen3-vl-8b-instruct` | 跨 App 采样 × 5 轮 |
+| Preferred 基线 | `bash scripts/run_preferred_baselines.sh --model qwen/qwen3-vl-8b-instruct` | 顺序跑 a → b |
+| Preferred 全套 | `bash scripts/run_preferred_all.sh --model qwen/qwen3-vl-8b-instruct` | 顺序跑 dms → b → a |
+| Full | `bash scripts/run_full_split.sh --model qwen/qwen3-vl-8b-instruct` | ~116 任务，很慢 |
+| Full 基线 | `bash scripts/run_full_split_baselines.sh --model qwen/qwen3-vl-8b-instruct` | Full 档 a → b |
 
-```bash
-export DASHSCOPE_API_KEY='sk-...'
-bash scripts/run_test.sh \
-  --provider dashscope \
-  --base_url https://cn-hongkong.dashscope.aliyuncs.com/compatible-mode/v1 \
-  --model qwen3-vl-8b-instruct
-```
+可选：`BACKEND=a`、`TRIALS=1` 快速冒烟；`TASK=MarkorCreateNote` 指定 test 任务。  
+长实验前缀加 `DETACH=1`，断开 SSH 不中断，日志在 `DMS/logs/`。
 
-等价 Python 入口：
+结果目录：`DMS/results/aw_{backend}_{suite}_{model}_{时间戳}/`，含 `task_results.json`、`round_metrics.json`、同目录下 `memory_banks/{a|b|dms}/`。
 
-```bash
-python runners/run_androidworld.py --suite test --backend dms --trials 1 \
-  --model qwen/qwen3-vl-8b-instruct
-```
-
-## 输出说明
-
-每次运行写入：
-
-`DMS/results/aw_{backend}_{suite}_{model}_{timestamp}/`
-
-| 文件 | 内容 |
-|------|------|
-| `task_results.json` | 逐任务日志 |
-| `round_metrics.json` / `.csv` | 每轮 SR、SRR、MRR、步数、Token、记忆规模 |
-| `summary.json` | 轮次精简汇总 |
-| `memory_banks/{a\|b\|dms}/` | 各 baseline 独立记忆库 |
-| `evolution_curves.png` | 若已安装 matplotlib 则生成曲线图 |
-
-指标实现见 `DMS/metrics/`（`RoundMetricsRecorder`、`MetricsPlotter`）。`results/` 与记忆库默认已由 `.gitignore` 忽略。
+---
 
 ## 配置
 
-超参与嵌入见 `DMS/configs/default.yaml`：
-
-```yaml
-embedding:
-  model_name_or_path: BAAI/bge-small-en-v1.5
-  device: cpu
-```
-
-本地嵌入权重：
-
-```bash
-export EMBEDDING_MODEL_PATH=/path/to/bge-small-en-v1.5
-```
+超参见 `DMS/configs/default.yaml`。
 
 ## 引用
 
@@ -155,11 +151,9 @@ export EMBEDDING_MODEL_PATH=/path/to/bge-small-en-v1.5
 
 ## 声明
 
-本仓库为独立复现，用于研究 / 课程考核，**非论文作者官方发布**。因模型规模、解码策略与任务子集不同，结果可能与原论文存在差异。
+本仓库为独立复现，用于研究 / 课程考核，**非论文作者官方发布**。
 
-## 实现边界（机制 vs 胶水）
+## 实现边界
 
-- **`DMS/core/`**：Survival / 检索 / 修剪 / mutation 等按论文机制实现；**不要为涨 SR 改公式**。
-- **`DMS/agent/`**：独立 PA-Lite 执行栈（JSON 动作），**不是**官方 Droid/CodeAct 端口。
-- 仅保留与官方 **AppStarter** 同意图的开 App 短路（`open_app`，不翻抽屉）；其余行为交给 Planner/Actor prompt + 记忆 `decide`。
-- 文档里「对应官方」= 意图同类，不是逐行一致。论文主表 SR 不承诺复现。
+- **`DMS/core/`**：Survival / 检索 / 修剪 / mutation 等按论文机制实现。
+- **`DMS/agent/`**：独立 CodeAct 执行栈，挂自研 DMS 记忆；非官方 Droid/CodeAct 端口。

@@ -8,7 +8,7 @@ from agent.app_names import normalize_app_name
 
 
 class CodeActToolkit:
-    """工具副作用通过 execute_fn(action_dict) 落到真机。"""
+    """工具副作用经 execute_fn 落到真机。"""
 
     def __init__(
         self,

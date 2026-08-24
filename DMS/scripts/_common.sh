@@ -4,7 +4,7 @@
 #   <repo>/code/DMS/scripts/this
 #   <repo>/code/android_world/
 #
-# 后台保活（关掉 VSCode / SSH 也不停）：
+# 后台保活，关掉 VSCode 或 SSH 也不停：
 #   DETACH=1 bash scripts/run_preferred.sh --model qwen/qwen3-vl-8b-instruct
 # 日志在 DMS/logs/；用 tail -f 查看，kill $(cat ...pid) 停止。
 
@@ -15,7 +15,7 @@ _dms_common_init() {
   aw="$(cd "${root}/../android_world" && pwd)"
 
   if [[ ! -f "${root}/runners/run_androidworld.py" ]]; then
-    echo "[错误] 找不到 runners/run_androidworld.py（ROOT=${root}）" >&2
+    echo "[错误] 找不到 runners/run_androidworld.py, ROOT=${root}" >&2
     exit 1
   fi
   if [[ ! -d "${aw}/android_world" ]]; then
@@ -40,14 +40,14 @@ _dms_common_init() {
   fi
 
   if ! "${DMS_PYTHON}" -c "import android_world" >/dev/null 2>&1; then
-    echo "[错误] 当前解释器无法 import android_world（${DMS_PYTHON}）。" >&2
+    echo "[错误] 当前解释器无法 import android_world: ${DMS_PYTHON}" >&2
     echo "      请先: source <venv>/bin/activate 并确保已安装 android_world。" >&2
     exit 1
   fi
 
   if [[ -z "${OPENROUTER_API_KEY:-}${OPENAI_API_KEY:-}${QWEN_API_KEY:-}${DASHSCOPE_API_KEY:-}" \
         && -z "${QWEN_BASE_URL:-}" ]]; then
-    echo "[错误] 未设置 VLM API Key（OPENROUTER_API_KEY / OPENAI_API_KEY 等）。" >&2
+    echo "[错误] 未设置 VLM API Key，需 OPENROUTER_API_KEY / OPENAI_API_KEY 等。" >&2
     exit 1
   fi
 
@@ -55,7 +55,7 @@ _dms_common_init() {
     echo "[警告] PATH 中没有 adb；将尝试 ANDROID_HOME / ANDROID_SDK_ROOT。" >&2
   else
     if ! adb devices 2>/dev/null | grep -qE $'device$'; then
-      echo "[警告] adb devices 未见就绪设备。请先启动模拟器（如 emulator-5554）。" >&2
+      echo "[警告] adb devices 未见就绪设备。请先启动模拟器，如 emulator-5554。" >&2
     fi
   fi
 

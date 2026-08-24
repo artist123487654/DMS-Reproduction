@@ -15,7 +15,7 @@ class CapacityConfig:
 
 
 def elbow_index(scores_desc: list[float]) -> int:
-    """在降序生存价值曲线上找肘点 k* = argmax ∇²f(k)。"""
+    """在降序生存价值曲线上找肘点。"""
     n = len(scores_desc)
     if n < 3:
         return max(0, n - 1)
@@ -30,7 +30,7 @@ def regulate_capacity(
     cfg: CapacityConfig,
 ) -> tuple[int, int, bool]:
     """
-    返回 (keep_count, new_C_min, expanded)。
+    返回 keep_count、new_C_min、expanded。
     肘点处价值仍不低于均值时扩容；否则按肘点剪长尾，保留数不低于 C_min。
     """
     n = len(scores_desc)

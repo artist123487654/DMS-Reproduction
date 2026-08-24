@@ -1,4 +1,4 @@
-"""双因子检索：Score = sim(pre) * sim(goal)。"""
+"""双因子检索，Score = sim_pre × sim_goal。"""
 
 from __future__ import annotations
 

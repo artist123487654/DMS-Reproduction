@@ -1,4 +1,4 @@
-"""通过 HTTP 调用远端 VLM（OpenRouter / OpenAI 等兼容接口）。"""
+"""通过 HTTP 调用远端 VLM。"""
 
 from __future__ import annotations
 
@@ -76,7 +76,7 @@ def _resolve_api_key(api_key: str | None, provider: str) -> str:
 
 class QwenVLWrapper:
     """
-    只走 HTTP Chat Completions（推荐 OpenRouter / OpenAI）。
+    只走 HTTP Chat Completions，推荐 OpenRouter 或 OpenAI。
 
     OpenRouter:
       export OPENROUTER_API_KEY=sk-or-...
@@ -113,7 +113,7 @@ class QwenVLWrapper:
         self.api_key = _resolve_api_key(api_key, self.provider or "openrouter")
         if not self.api_key:
             raise RuntimeError(
-                "未找到 API Key。请设置 OPENROUTER_API_KEY 或 OPENAI_API_KEY（或 QWEN_API_KEY）。"
+                "未找到 API Key。请设置 OPENROUTER_API_KEY、OPENAI_API_KEY 或 QWEN_API_KEY。"
             )
 
         default_model = _DEFAULT_MODELS.get(self.provider, "qwen/qwen3-vl-8b-instruct")

@@ -19,30 +19,24 @@ class Plan:
 
 @dataclass
 class TrajectoryStep:
-    """原子交互一步。"""
+    """一轮 CodeAct LLM IO，存 prompt / thought / code。"""
 
-    action: dict[str, Any]
-    observation_ref: str | None = None
-    ui_hint: str | None = None
-
-
-_SKIP_ACTION_TYPES = frozenset({"status", "wait", None, ""})
+    prompt: str = ""
+    response_thought: str = ""
+    response_code: str = ""
+    response_raw: str = ""
 
 
-def action_step_count(trajectory: list[TrajectoryStep]) -> int:
-    """有效动作步数，不含 status/wait。"""
-    return sum(
-        1
-        for s in trajectory
-        if (s.action or {}).get("action_type") not in _SKIP_ACTION_TYPES
-    )
+def io_step_count(trajectory: list[TrajectoryStep]) -> int:
+    """有效 CodeAct 轮数，统计含可执行代码的步。"""
+    return sum(1 for s in trajectory if (s.response_code or "").strip())
 
 
 def should_persist_trajectory(
     trajectory: list[TrajectoryStep], *, exploring: bool = False
 ) -> bool:
-    """成功轨迹入库：默认 n>1；探索允许 n>=1。含 input_text 的完整轨迹可入库（对齐常用 CodeAct+DMS）。"""
-    n = action_step_count(trajectory)
+    """成功轨迹入库：默认多轮，探索时允许单轮。"""
+    n = io_step_count(trajectory)
     if n > 1:
         return True
     if n >= 1 and exploring:

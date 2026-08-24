@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Full Split：AndroidWorld 完整任务集（约 116）。
+# Full Split：AndroidWorld 完整任务集，约 116 个任务。
 #   bash scripts/run_full_split.sh
 #   DETACH=1 bash scripts/run_full_split.sh --model qwen/qwen3-vl-8b-instruct
 #   BACKEND=b TRIALS=5 bash scripts/run_full_split.sh

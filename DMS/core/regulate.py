@@ -97,9 +97,9 @@ class DarwinianMemorySystem:
     def tick(self) -> None:
         self.logical_step += 1
 
-    # 风险门控
+    # 风险门控：ρ 过高则禁止复放、改走生成，不丢弃 plan
     def plan_suppressed(self, plan: Plan) -> bool:
-        """历史失败过多则抑制该 plan。"""
+        """仅作风险探测，不再用于 Planner 静默删 plan。"""
         hits = self.retriever.retrieve(plan)
         if not hits:
             return False
@@ -107,17 +107,21 @@ class DarwinianMemorySystem:
         bad, _, _ = should_suppress_plan(
             entry.fail_count, entry.success_count, self.risk_state, self.cfg.risk
         )
-        if bad:
-            self.stats["suppressed"] += 1
         return bad
 
     # 检索 / mutation
     def query(self, plan: Plan) -> tuple[MemoryEntry | None, float, bool]:
-        """返回 (命中记忆, score, 是否 mutation)。mutation 时由 CodeAct 重跑。"""
+        """检索命中后决定复放或生成。"""
         hits = self.retriever.retrieve(plan)
         if not hits:
             return None, 0.0, True
         entry, score = hits[0]
+        risky, _, _ = should_suppress_plan(
+            entry.fail_count, entry.success_count, self.risk_state, self.cfg.risk
+        )
+        if risky:
+            self.stats["suppressed"] += 1
+            return entry, score, True
         mutate = should_mutate(self.cfg.mutation)
         if mutate:
             self.stats["mutated"] += 1

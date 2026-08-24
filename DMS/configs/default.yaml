@@ -7,8 +7,8 @@ survival:
   gamma: 1.0
 
 capacity:
-  C_min: 30
-  C_max: 80
+  C_min: 70
+  C_max: 100
   delta_step: 10
 
 retrieval:
@@ -17,8 +17,8 @@ retrieval:
   min_score: 0.95
 
 agent:
-  max_planner_steps: 8
-  max_codeact_turns: 12
+  max_planner_steps: 5
+  max_codeact_turns: 8
 
 embedding:
   model_name_or_path: BAAI/bge-small-en-v1.5

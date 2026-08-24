@@ -139,7 +139,8 @@ class DarwinianBackend:
         return MemoryDecision(entry=entry, score=score, mutate=mutate)
 
     def suppress(self, plan: Plan) -> bool:
-        return self.dms.plan_suppressed(plan)
+        # 风险在 dms.query 内处理，过高则强制生成，此处不再删 plan
+        return False
 
     def commit(self, plan, trajectory, *, success, decision) -> None:
         if success:
@@ -165,10 +166,8 @@ class DarwinianBackend:
                 self._episode_ids.append(decision.entry.id)
 
     def on_episode_end(self, env_success: bool) -> None:
+        # 子任务成功即入库，整题失败也不回滚
         if not env_success:
-            if self._episode_added:
-                n = self.dms.bank.delete_many(self._episode_added)
-                self.dms.stats["pruned"] = int(self.dms.stats.get("pruned", 0)) + n
             self.dms.risk_state.update_global(False, self.dms.cfg.risk)
         self._episode_ids.clear()
         self._episode_added.clear()

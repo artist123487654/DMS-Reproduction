@@ -10,14 +10,14 @@ from typing import Iterable
 
 import numpy as np
 
-from .types import MemoryEntry, MemoryMeta, Plan, TrajectoryStep, action_step_count
+from .types import MemoryEntry, MemoryMeta, Plan, TrajectoryStep, io_step_count
 
 
 class MemoryBank:
     """
-    将Plan和Trajectory分开存储：
-    - SQLite：存储Plan和Trajectory的关联关系
-    - traj/*.json：存储Trajectory
+    Plan + CodeAct IO 轨迹：
+    - SQLite：plan / 计数 / 向量
+    - traj/*.json：llm_io_steps，含 prompt / thought / code / raw
     """
 
     def __init__(self, root: str | Path, db_name: str = "index.sqlite", traj_dirname: str = "traj"):
@@ -79,9 +79,9 @@ class MemoryBank:
         emb_goal: np.ndarray | None = None,
         mem_id: str | None = None,
     ) -> MemoryEntry:
-        # 底层兜底：至少 1 个有效动作；>1 规则由 commit 层过滤
-        if action_step_count(trajectory) < 1:
-            raise ValueError("拒绝无有效动作的碎片记忆")
+        # 底层兜底：至少 1 轮有效 CodeAct；>1 规则由 commit 层过滤
+        if io_step_count(trajectory) < 1:
+            raise ValueError("拒绝无有效 CodeAct 代码的碎片记忆")
 
         mem_id = mem_id or str(uuid.uuid4())
         entry = MemoryEntry(
@@ -228,29 +228,48 @@ class MemoryBank:
 
     # ---------- 内部 ----------
     def _write_traj(self, entry: MemoryEntry) -> None:
+        # llm_io_steps：prompt / thought / code / raw
         payload = [
             {
-                "action": s.action,
-                "observation_ref": s.observation_ref,
-                "ui_hint": s.ui_hint,
+                "prompt": s.prompt,
+                "response_thought": s.response_thought,
+                "response_code": s.response_code,
+                "response_raw": s.response_raw,
             }
             for s in entry.trajectory
         ]
-        self.traj_path(entry.id).write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+        self.traj_path(entry.id).write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
 
     def _load_traj(self, mem_id: str) -> list[TrajectoryStep]:
         p = self.traj_path(mem_id)
         if not p.exists():
             return []
         raw = json.loads(p.read_text(encoding="utf-8"))
-        return [
-            TrajectoryStep(
-                action=item.get("action", {}),
-                observation_ref=item.get("observation_ref"),
-                ui_hint=item.get("ui_hint"),
+        if not isinstance(raw, list) or not raw:
+            return []
+        # 旧版 action 日志一律丢弃，避免盲放 index
+        first = raw[0] if isinstance(raw[0], dict) else {}
+        if "action" in first and "response_code" not in first:
+            return []
+        out: list[TrajectoryStep] = []
+        for item in raw:
+            if not isinstance(item, dict):
+                continue
+            code = item.get("response_code") or ""
+            if not code and item.get("response_code_sequence"):
+                seq = item["response_code_sequence"]
+                code = "\n".join(seq) if isinstance(seq, list) else str(seq)
+            out.append(
+                TrajectoryStep(
+                    prompt=str(item.get("prompt") or ""),
+                    response_thought=str(item.get("response_thought") or ""),
+                    response_code=str(code),
+                    response_raw=str(item.get("response_raw") or ""),
+                )
             )
-            for item in raw
-        ]
+        return out
 
     def _row_to_entry(self, row: sqlite3.Row, load_traj: bool) -> MemoryEntry:
         traj = self._load_traj(row["id"]) if load_traj else []

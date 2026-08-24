@@ -47,7 +47,7 @@ def build_preferred_tasks(
 ) -> list[str]:
     """
     Preferred：覆盖全部真实 App，每个 App 随机采样 1–2 个任务。
-    默认用 ANDROID_FAMILY（不含 MiniWoB），以验证跨应用泛化。
+    默认用 ANDROID_FAMILY，不含 MiniWoB，用于跨应用泛化。
     """
     per_app = max(1, min(2, int(per_app)))
     aw = load_android_registry(family)
@@ -71,7 +71,7 @@ def build_preferred_tasks(
 
 
 def build_full_split_tasks(family: str = "android_world") -> list[str]:
-    """完整 Split：默认 android_world 全家桶（约 116）。"""
+    """完整 Split，android_world 全家桶约 116 个任务。"""
     aw = load_android_registry(family)
     return sorted(aw.keys())
 
@@ -87,7 +87,7 @@ def resolve_tasks(
     """
     解析最终任务列表。
     优先级：--tasks > --tasks_file > --suite > 默认 min。
-    返回 (task_names, suite_label)。
+    返回 task_names 和 suite_label。
     """
     if tasks:
         parts = [x.strip() for x in tasks.replace(";", ",").split(",") if x.strip()]

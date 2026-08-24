@@ -40,8 +40,9 @@ adb shell ls /data/data/android_world/snapshots/ | head
 
 ## 3. 跑实验
 
-均在 `code/DMS` 下执行；默认模型：`qwen/qwen3-vl-8b-instruct`。  
-执行器为独立 **CodeAct**（Planner → 写 Python 调工具 / 命中则复放轨迹），挂自研 DMS；**不**从官方 DMS 仓库 import。  
+均在 `code/DMS` 下执行；默认模型：`qwen/qwen3-vl-8b-instruct`。
+执行器为独立 **CodeAct**（Planner → 写 Python 调工具 / 命中则**重跑存下的代码**），挂自研 DMS；**不**从官方 DMS 仓库 import。  
+记忆落盘为 **llm_io**（prompt/thought/code），不再存原子 `click index` 录像；**旧 `memory_banks` 必须清空**后重跑。  
 通用提示：开 App 用 `open_app`、子任务尽快 `complete`；runner 在环境 `is_successful==1` 时早停。
 
 正式评测前确认快照：`adb shell ls /data/data/android_world/snapshots/`；旧 `memory_banks` 建议清空后空库重跑。

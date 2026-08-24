@@ -1,4 +1,4 @@
-"""常见 App 名归一（CodeAct open_app 用）。"""
+"""常见 App 名归一，供 CodeAct open_app 使用。"""
 
 from __future__ import annotations
 

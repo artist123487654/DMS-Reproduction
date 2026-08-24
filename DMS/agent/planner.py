@@ -1,4 +1,4 @@
-"""高层 Planner：分解总任务为子任务（供 CodeAct 执行）。"""
+"""高层 Planner，分解总任务为子任务。"""
 
 from __future__ import annotations
 

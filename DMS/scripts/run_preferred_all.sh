@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Preferred：顺序跑 DMS → B → A（共用一台模拟器，禁止并行）。
+# Preferred：顺序跑 DMS → B → A，共用一台模拟器，禁止并行。
 #   bash scripts/run_preferred_all.sh --model qwen/qwen3-vl-8b-instruct
 #   DETACH=1 bash scripts/run_preferred_all.sh --model qwen/qwen3-vl-8b-instruct
 # 可选：TRIALS=5 PER_APP=2 SEED=30 BACKENDS="dms b a"

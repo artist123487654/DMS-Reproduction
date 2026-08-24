@@ -1,4 +1,4 @@
-"""VLM 调用协议（实现见 QwenVLWrapper）。"""
+"""VLM 调用协议。"""
 
 from __future__ import annotations
 

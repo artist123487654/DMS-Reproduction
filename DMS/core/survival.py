@@ -1,4 +1,4 @@
-"""生存价值 S(m) = Utility × AdaptiveDecay × Reliability。"""
+"""生存价值 S = Utility × AdaptiveDecay × Reliability。"""
 
 from __future__ import annotations
 
@@ -15,22 +15,22 @@ class SurvivalConfig:
     gamma: float = 1.0  # 可靠性因子
 
 def marginal_utility(n_i: int, v_new: float, is_new: bool) -> float:
-    """边际效用。U(n) = ln(1+n) + v_new"""
+    """边际效用 U。"""
     bonus = v_new if is_new else 0.0
     return math.log1p(n_i) + bonus
 
 def half_life(n_i: int, t_base: float, mu: float) -> float:
-    """半衰期。t_half(n) = t_base + μ · ln(1+n)"""
+    """半衰期 t_half。"""
     return t_base + mu * math.log1p(n_i)
 
 def adaptive_decay(delta_t: float, n_i: int, beta: float, t_base: float, mu: float) -> float:
-    """自适应衰减。D = 1 / (1 + exp(β(Δt - t_half)))"""
+    """自适应衰减因子 D。"""
     th = half_life(n_i, t_base, mu)
     return 1.0 / (1.0 + math.exp(beta * (delta_t - th)))
 
 
 def reliability(k_i: int, gamma: float) -> float:
-    """可靠性。P(k) = 1 / (1 + γk)"""
+    """可靠性 P。"""
     return 1.0 / (1.0 + gamma * k_i)
 
 

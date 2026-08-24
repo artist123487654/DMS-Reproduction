@@ -38,4 +38,4 @@ for BACKEND in a b; do
 done
 
 echo ""
-echo "==== Baselines A/B finished（DMS 请单独: bash scripts/run_full_split.sh） ===="
+echo "==== Baselines A/B finished. DMS 请单独跑: bash scripts/run_full_split.sh ===="

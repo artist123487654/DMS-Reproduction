@@ -1,4 +1,4 @@
-"""CodeAct 提示词（独立实现，不依赖官方 DMS 包）。"""
+"""CodeAct 提示词。"""
 
 CODEACT_SYSTEM = """You are an Android GUI CodeAct agent.
 Given the sub-task goal and the current screen (SoM numbered UI list + screenshot),

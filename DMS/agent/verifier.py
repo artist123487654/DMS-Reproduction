@@ -30,6 +30,12 @@ class Verifier:
         image: np.ndarray | None,
         traj_summary: str,
     ) -> VerifyResult:
+        if image is None:
+            return VerifyResult(
+                success=False,
+                reason="No valid screenshot for audit-on-use",
+                raw="",
+            )
         user = prompts.verifier_user_prompt(
             plan.precondition, plan.goal, screen_desc, traj_summary
         )

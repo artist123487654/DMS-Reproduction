@@ -1,4 +1,4 @@
-"""CodeAct × DMS × AndroidWorld（独立实现，不 import 官方 DMS 包）。"""
+"""CodeAct × DMS × AndroidWorld 实现。"""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from typing import Any
 
 from agent.app_names import normalize_app_name
 from agent.baselines import MemoryBackend
-from agent.codeact_exec import extract_python_block, run_codeact
+from agent.codeact_exec import extract_python_block, run_codeact, split_thought_and_code
 from agent import codeact_prompts as prompts
 from agent.codeact_tools import CodeActToolkit
 from agent.planner import Planner
@@ -27,7 +27,7 @@ except Exception:
 
 
 class CodeActAgentCore:
-    """Planner 出子任务 → 检索/复放或 CodeAct 生成 → 回流 DMS。"""
+    """Planner 出子任务，检索复放或 CodeAct 生成，再回流 DMS。"""
 
     def __init__(
         self,
@@ -89,8 +89,8 @@ class CodeActAgentCore:
                     return True, {"reason": "planner_task_done", "raw": result.raw}
                 self.history.append("REJECT-task_done")
                 return False, {"phase": "reject_task_done"}
-            # 仅用 DMS 风险抑制（论文机制），不做 episode 级 goal 拉黑
-            self.plan_queue = [p for p in result.plans if not self.memory.suppress(p)]
+            # 保留全部 plan；risk 过高时禁止复放，改走生成
+            self.plan_queue = list(result.plans)
             if not self.plan_queue:
                 self.history.append("empty_plan")
                 return False, {"phase": "empty_plan"}
@@ -100,24 +100,33 @@ class CodeActAgentCore:
         plan = self.plan_queue[0]
         decision = self.memory.decide(plan)
 
-        # ---------- 记忆复放（整段轨迹）；失败走 DMS commit/校验计数，不手写拉黑 ----------
-        if decision.entry is not None and not decision.mutate:
-            traj = decision.entry.trajectory
+        traj_hit = decision.entry.trajectory if decision.entry is not None else []
+        can_replay = (
+            decision.entry is not None
+            and not decision.mutate
+            and any((s.response_code or "").strip() for s in traj_hit)
+        )
+
+        # 记忆复放：重跑存下的 CodeAct 代码
+        if can_replay:
+            traj = traj_hit
             self.metrics["replays"] += 1
             exec_errs = 0
             for step in traj:
-                err = execute_fn(step.action)
-                self.metrics["actor_steps"] += 1
-                self.metrics["reused_actions"] += 1
-                if err:
+                code = (step.response_code or "").strip()
+                if not code:
+                    continue
+                _img, ui_r, _scr = observe_fn()
+                toolkit = CodeActToolkit(execute_fn, ui_count=len(ui_r or []))
+                result_log = run_codeact(code, toolkit.as_globals())
+                n_acts = len(toolkit.actions)
+                self.metrics["actor_steps"] += max(n_acts, 1)
+                self.metrics["reused_actions"] += max(n_acts, 1)
+                if toolkit.failed or "exec error:" in result_log or "rejected:" in result_log:
                     exec_errs += 1
             image2, _, screen2 = observe_fn()
-            if exec_errs:
-                ok = False
-            elif image2 is None:
-                ok = True
-            else:
-                ok = self._verify(plan, screen2, image2, traj)
+            # 无有效截图则无法核查，不得当作复放成功
+            ok = False if exec_errs else self._verify(plan, screen2, image2, traj)
             self.memory.commit(plan, list(traj), success=ok, decision=decision)
             self.plan_queue.pop(0)
             self._reset_gen_state()
@@ -125,7 +134,7 @@ class CodeActAgentCore:
             self.metrics["memory_size"].append(self.memory.size())
             return False, {"phase": "replay", "success": ok, "goal": plan.goal}
 
-        # ---------- CodeAct 生成（每 env step 一轮）----------
+        # CodeAct 生成，每 env step 一轮
         self.metrics["generations"] += 1
         image_i, ui_i, screen_i = observe_fn()
         if not screen_i:
@@ -137,12 +146,21 @@ class CodeActAgentCore:
         prompt = prompts.CODEACT_SYSTEM + "\n\n" + user
         images = [image_i] if image_i is not None else []
         text, _, _ = self.llm.predict_mm(prompt, images)
-        code = extract_python_block(text or "") or ""
+        thought, code = split_thought_and_code(text or "")
+        if not code:
+            code = extract_python_block(text or "") or ""
         result_log = run_codeact(code, toolkit.as_globals())
-        for act in toolkit.actions:
-            self._gen_traj.append(TrajectoryStep(action=act, ui_hint=screen_i[:200]))
-            self.metrics["actor_steps"] += 1
-            self.metrics["generated_actions"] += 1
+        self._gen_traj.append(
+            TrajectoryStep(
+                prompt=user,
+                response_thought=thought,
+                response_code=code,
+                response_raw=text or "",
+            )
+        )
+        n_acts = len(toolkit.actions)
+        self.metrics["actor_steps"] += max(n_acts, 1)
+        self.metrics["generated_actions"] += max(n_acts, 1)
         self._gen_hist.append(result_log[:500])
         self._gen_turns += 1
 
@@ -179,8 +197,13 @@ class CodeActAgentCore:
     def _verify(self, plan, screen: str, image, traj) -> bool:
         if not self.use_verifier:
             return True
-        parts = [f"{i+1}:{s.action}" for i, s in enumerate(traj[:24])]
-        summary = f"{len(traj)} steps | " + " | ".join(parts)
+        if image is None:
+            return False
+        parts = []
+        for i, s in enumerate(traj[:24]):
+            code = (s.response_code or "").replace("\n", " ")[:120]
+            parts.append(f"{i+1}:{code or '(empty)'}")
+        summary = f"{len(traj)} codeact turns | " + " | ".join(parts)
         return self.verifier.verify(plan, screen, image, summary).success
 
     def _can_accept_task_done(self) -> bool:

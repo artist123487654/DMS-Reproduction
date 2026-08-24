@@ -36,12 +36,12 @@ class RiskState:
 
 
 def expected_fail_prob(f_i: int, s_i: int, t_global: float, m: float) -> float:
-    """期望失败概率。μ_i = (F + M·T_global) / (F + S + M)"""
+    """期望失败概率 μ_i。"""
     return (f_i + m * t_global) / (f_i + s_i + m)
 
 
 def posterior_std(mu: float, f_i: int, s_i: int, m: float) -> float:
-    """后验标准差。σ_i = sqrt( μ(1-μ) / (F+S+M+1) )"""
+    """后验标准差 σ_i。"""
     return math.sqrt(max(mu * (1.0 - mu), 0.0) / (f_i + s_i + m + 1.0))
 
 
@@ -53,7 +53,7 @@ def risk_score(f_i: int, s_i: int, t_global: float, cfg: RiskConfig) -> float:
 
 
 def reject_threshold(t_global: float, cfg: RiskConfig) -> float:
-    """拒绝阈值。τ = τ_base · (1 - λ · T_global)"""
+    """拒绝阈值 τ。"""
     return cfg.tau_base * (1.0 - cfg.lambda_pen * t_global)
 
 
@@ -63,7 +63,7 @@ def should_suppress_plan(
     state: RiskState,
     cfg: RiskConfig,
 ) -> tuple[bool, float, float]:
-    """若 t_i > τ 则抑制该计划。返回 (suppress, t_i, τ)。"""
+    """若 t_i 超过 τ 则抑制该计划。"""
     ti = risk_score(f_i, s_i, state.t_global, cfg)
     tau = reject_threshold(state.t_global, cfg)
     return ti > tau, ti, tau

@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 
-# 默认任务难度（可用 complexity 覆盖）
+# 默认任务难度，可被 complexity 覆盖
 _DEFAULT_DIFFICULTY: dict[str, str] = {
     "ContactsAddContact": "easy",
     "MarkorCreateNote": "medium",
@@ -104,7 +104,7 @@ class RoundMetricsRecorder:
         return sum(1 for r in subset if r.get("success")) / len(subset)
 
     def _compute_srr(self) -> float | None:
-        """SRR = 连续成功对数 / 总成功次数（截至当前已记录的全部轮次）。"""
+        """SRR = 连续成功对数 / 总成功次数。"""
         pairs = 0
         successes = 0
         for seq in self._success_history.values():

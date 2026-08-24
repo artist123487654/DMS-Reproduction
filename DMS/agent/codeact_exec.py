@@ -28,6 +28,20 @@ def extract_python_block(text: str) -> str | None:
     return None
 
 
+def split_thought_and_code(text: str) -> tuple[str, str]:
+    """从模型回复拆出 thought 和 python 代码。"""
+    if not text:
+        return "", ""
+    code = extract_python_block(text) or ""
+    # 去掉所有 ```python ... ``` 块，剩余当 thought
+    thought = re.sub(
+        r"```(?:python)?\s*.*?```", "", text, flags=re.DOTALL | re.IGNORECASE
+    ).strip()
+    if not code:
+        return thought or text.strip(), ""
+    return thought, code
+
+
 def run_codeact(
     code: str,
     tools: dict[str, Callable[..., Any]],

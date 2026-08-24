@@ -9,7 +9,7 @@ from typing import Any
 
 
 class MetricsPlotter:
-    """读取 RoundMetricsRecorder 落盘结果并出图（可选 matplotlib）。"""
+    """读取 RoundMetricsRecorder 落盘结果并出图。"""
 
     def __init__(self, results_dir: str | Path):
         self.results_dir = Path(results_dir)
